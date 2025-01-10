@@ -1,7 +1,7 @@
 import json
 import numpy as np
 import os
-from functions import mean_squared_error
+from functions import mean_squared_error, sigmoid, mean_squared_error_derivative, sigmoid_derivative
 
 class NeuralNetworkModel:
     def __init__(self, layer_sizes):
@@ -42,17 +42,86 @@ class NeuralNetworkModel:
 
     def compute_output(self, activation_vector, training_vector=None):
         activations = [np.array(activation_vector)]
-        for weights, bias in zip(self.weights, self.biases):
-            weights_array = np.array(weights)
-            bias_array = np.array(bias)
-            activations.append(np.dot(activations[-1], weights_array) + bias_array)
-
-        output_array = activations[-1]
+        output_arrays = []
+        for layer_weights, layer_bias in zip(self.weights, self.biases):
+            output_arrays.append(np.dot(activations[-1], np.array(layer_weights)) + np.array(layer_bias))
+            activations.append(sigmoid(output_arrays[-1]))
 
         if training_vector is not None:
             training_array = np.array(training_vector)
-            cost = mean_squared_error(output_array, training_array)
+            cost = mean_squared_error(activations[-1], training_array)
+            cost_derivative_wrt_output = mean_squared_error_derivative(activations[-1], training_array)
+            output_derivative_wrt_activation = sigmoid_derivative(output_arrays[-1])
+            cost_derivative_wrt_activation = cost_derivative_wrt_output * output_derivative_wrt_activation
+
+            cost_derivatives_wrt_weights = []
+            cost_derivatives_wrt_biases = []
+
+            for layer in range(len(self.weights) - 1, -1, -1):
+                activation_derivative_wrt_weights = activations[layer - 1]
+                cost_derivative_wrt_weights = np.outer(activation_derivative_wrt_weights, cost_derivative_wrt_activation)
+                cost_derivatives_wrt_weights.insert(0, cost_derivative_wrt_weights.tolist())
+
+                cost_derivative_wrt_biases = cost_derivative_wrt_activation
+                cost_derivatives_wrt_biases.insert(0, cost_derivative_wrt_biases.tolist())
+
+                if layer > 0:  # Backpropagate error to previous layers
+                    prev_output_derivative_wrt_activation = sigmoid_derivative(output_arrays[layer - 1])
+                    prev_layer_weighted_error = np.dot(cost_derivative_wrt_activation, np.array(self.weights[layer]).T)
+                    cost_derivative_wrt_activation = prev_layer_weighted_error * prev_output_derivative_wrt_activation
         else:
             cost = None
+            cost_derivatives_wrt_weights = None
+            cost_derivatives_wrt_biases = None
 
-        return output_array.tolist(), cost
+        return activations[-1].tolist(), cost, cost_derivatives_wrt_weights, cost_derivatives_wrt_biases
+
+    def _train_step(self, avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate):
+        """
+        Update the weights and biases of the neural network using the averaged cost derivatives.
+
+        :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives with respect to weights.
+        :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives with respect to biases.
+        :param learning_rate: Learning rate for gradient descent.
+        """
+        # Update weights
+        for layer in range(len(self.weights)):
+            self.weights[layer] = (np.array(self.weights[layer]) -
+                                   learning_rate * np.array(avg_cost_derivatives_wrt_weights[layer])).tolist()
+        # Update biases
+        for layer in range(len(self.biases)):
+            self.biases[layer] = (np.array(self.biases[layer]) -
+                                  learning_rate * np.array(avg_cost_derivatives_wrt_biases[layer])).tolist()
+
+    def train(self, training_data, epochs=100, learning_rate=0.01):
+        """
+        Train the neural network using the provided training data.
+
+        :param training_data: List of tuples [(activation_vector, training_vector), ...].
+        :param epochs: Number of training iterations.
+        :param learning_rate: Learning rate for gradient descent.
+        """
+        for epoch in range(epochs):
+            np.random.shuffle(training_data)
+            avg_cost_derivatives_wrt_weights = [np.zeros_like(np.array(w)) for w in self.weights]
+            avg_cost_derivatives_wrt_biases = [np.zeros_like(np.array(b)) for b in self.biases]
+            total_cost = 0
+
+            for activation_vector, training_vector in training_data:
+                _, cost, cost_derivatives_wrt_weights, cost_derivatives_wrt_biases = self.compute_output(
+                    activation_vector, training_vector
+                )
+                total_cost += cost
+                for layer in range(len(self.weights)):
+                    avg_cost_derivatives_wrt_weights[layer] += np.array(cost_derivatives_wrt_weights[layer])
+                    avg_cost_derivatives_wrt_biases[layer] += np.array(cost_derivatives_wrt_biases[layer])
+
+            # Average the derivatives
+            avg_cost_derivatives_wrt_weights = [w / len(training_data) for w in avg_cost_derivatives_wrt_weights]
+            avg_cost_derivatives_wrt_biases = [b / len(training_data) for b in avg_cost_derivatives_wrt_biases]
+
+            # Update weights and biases
+            self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate)
+
+            # Print progress
+            print(f"Epoch {epoch + 1}/{epochs}, Cost: {total_cost / len(training_data):.4f}")

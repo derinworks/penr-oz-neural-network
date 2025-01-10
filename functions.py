@@ -24,3 +24,12 @@ def mean_squared_error(x1, x2):
     :return: the mean squared error between a NumPy array 1 to 2
     """
     return np.sum((x1 - x2) ** 2)
+
+def mean_squared_error_derivative(x1, x2):
+    """
+    Calculates cost derivative going from 1 to 2
+    :param x1: a NumPy array x1
+    :param x2: a NumPy array x2
+    :return: Derivative of the mean squared error between a NumPy array 1 to 2
+    """
+    return 2 * (x1 - x2)
