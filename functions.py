@@ -2,10 +2,11 @@ import numpy as np
 
 def sigmoid(x):
     """
-    Takes a NumPy array x and returns an array of the same shape
+    Takes a NumPy array x and returns an array of the same shape, avoiding overflow errors.
     :param x: a NumPy array x
     :return: Activation function: Sigmoid
     """
+    x = np.clip(x, -500, 500)  # Avoid overflow
     return 1 / (1 + np.exp(-x))
 
 def sigmoid_derivative(x):
@@ -14,6 +15,7 @@ def sigmoid_derivative(x):
     :param x: a NumPy array x
     :return: Derivative of sigmoid function
     """
+    x = np.clip(x, 0, 1)  # Avoid invalid values resulting from NaN or Inf
     return x * (1 - x)
 
 def mean_squared_error(x1, x2):
