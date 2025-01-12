@@ -142,3 +142,6 @@ ipython_config.py
 # Others
 .DS_Store
 Thumbs.db
+
+# Project specific
+models/
