@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Body
+from fastapi.params import Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from neural_net_model import NeuralNetworkModel
@@ -69,36 +70,43 @@ class TrainingItem(InputItem):
     )
 
 
-class ActivationRequest(BaseModel):
+class ModelRequest(BaseModel):
     model_id: str = Field(
         ...,
+        examples=["test"],
         description="The unique identifier for the model."
     )
+
+
+class CreateModelRequest(ModelRequest):
+    layer_sizes: list[int] = Field(
+        ...,
+        examples=[[9, 9, 9]],
+        description="A list of integers representing the sizes of each layer in the neural network."
+    )
+    init_algo: str = Field(
+        ...,
+        examples=["xavier"],
+        description="An initialization algorithm"
+    )
+
+
+class ModelMutationRequest(ModelRequest):
+    activation_algo: str = Field(
+        ...,
+        examples=["sigmoid"],
+        description="The activation algorithm to apply"
+    )
+
+
+class ActivationRequest(ModelMutationRequest):
     input: InputItem = Field(
         ...,
         description="The input data, an InputItem."
     )
 
 
-class CreateModelRequest(BaseModel):
-    model_id: str = Field(
-        ...,
-        examples=["test"],
-        description="The unique identifier for the model."
-    )
-    layer_sizes: list[int] = Field(
-        ...,
-        examples=[[9, 9, 9]],
-        description="A list of integers representing the sizes of each layer in the neural network."
-    )
-
-
-class TrainingRequest(BaseModel):
-    model_id: str = Field(
-        ...,
-        examples=["test"],
-        description="The unique identifier for the model."
-    )
+class TrainingRequest(ModelMutationRequest):
     training_data: list[TrainingItem] = Field(
         ...,
         examples=[EXAMPLES],
@@ -119,10 +127,9 @@ class TrainingRequest(BaseModel):
 @app.post("/model/")
 def create_model(body: CreateModelRequest = Body(...)):
     try:
-        model = NeuralNetworkModel(body.layer_sizes)
-        filepath = f"model_{body.model_id}.json"
-        model.serialize(filepath)
-        return {"message": "Model created and saved successfully", "file": filepath}
+        model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.init_algo)
+        model.serialize()
+        return {"message": f"Model {body.model_id} created and saved successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
@@ -135,17 +142,17 @@ def compute_model_output(body:
                                  "description": f"Example input and training data for case {idx + 1}",
                                  "value": {
                                      "model_id": "test",
+                                     "activation_algo": "sigmoid",
                                      "input": example
                                  }
                              } for idx, example in enumerate(EXAMPLES)} )):
     try:
-        filepath = f"model_{body.model_id}.json"
-        model = NeuralNetworkModel.deserialize(filepath)
+        model = NeuralNetworkModel.deserialize(body.model_id)
         activation_vector = body.input.activation_vector
         training_vector = body.input.training_vector
-
+        activation_algo = body.activation_algo
         output_vector, cost, cost_derivative_wrt_weights, cost_derivative_wrt_biases = (
-            model.compute_output(activation_vector, training_vector))
+            model.compute_output(activation_vector, activation_algo, training_vector))
         return {"output_vector": output_vector,
                 "cost": cost,
                 "cost_derivative_wrt_weights": cost_derivative_wrt_weights,
@@ -158,19 +165,29 @@ def compute_model_output(body:
 @app.put("/train/")
 async def train_model(body: TrainingRequest = Body(...)):
     try:
-        filepath = f"model_{body.model_id}.json"
-        model = NeuralNetworkModel.deserialize(filepath)
+        model = NeuralNetworkModel.deserialize(body.model_id)
 
         async def train():
             model.train(
                 [(data.activation_vector, data.training_vector) for data in body.training_data],
+                activation_algo= body.activation_algo,
                 epochs=body.epochs,
-                learning_rate=body.learning_rate
+                learning_rate=body.learning_rate,
             )
-            model.serialize(filepath)
 
         asyncio.create_task(train())
         return JSONResponse(content={"message": "Training started asynchronously."}, status_code=202)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@app.get("/progress/")
+def model_progress(model_id: str = Query(..., description="The unique identifier for the model.")):
+    try:
+        model = NeuralNetworkModel.deserialize(model_id)
+        return {
+            "progress": model.progress
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 

@@ -18,6 +18,38 @@ def sigmoid_derivative(x):
     x = np.clip(x, 0, 1)  # Avoid invalid values resulting from NaN or Inf
     return x * (1 - x)
 
+def relu(x):
+    """
+    Takes a NumPy array x and applies the ReLU activation function.
+    :param x: a NumPy array x
+    :return: ReLU activation of x
+    """
+    return np.maximum(0, x)
+
+def relu_derivative(x):
+    """
+    Takes a NumPy array x and returns the derivative of the ReLU function.
+    :param x: a NumPy array x
+    :return: Derivative of ReLU activation
+    """
+    return np.where(x > 0, 1, 0)
+
+def tanh(x):
+    """
+    Takes a NumPy array x and applies the tanh activation function.
+    :param x: a NumPy array x
+    :return: tanh activation of x
+    """
+    return np.tanh(x)
+
+def tanh_derivative(x):
+    """
+    Takes a NumPy array x and returns the derivative of the tanh function.
+    :param x: a NumPy array x
+    :return: Derivative of tanh activation
+    """
+    return 1 - np.tanh(x) ** 2
+
 def mean_squared_error(x1, x2):
     """
     Compares a NumPy array 1 to 2 and calculates cost going from 1 to 2
