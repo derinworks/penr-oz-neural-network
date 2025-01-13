@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException, Body
+import logging
+
+from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.params import Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -11,8 +13,21 @@ app = FastAPI(
     version="0.0.1"
 )
 
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
+logging.basicConfig(
+    datefmt=DATE_FORMAT,
+    format=LOG_FORMAT,
+)
+log = logging.getLogger(__name__)
+
+
 # Constants for examples
 EXAMPLES = [
+    {
+        "activation_vector": [0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "training_vector": [0, 0, 0, 0, 1., 0, 0, 0, 0]
+    },
     {
         "activation_vector": [0, 0, 0, 0, 2, 0, 0, 0, 0],
         "training_vector": [1., 0, 0, 0, 0, 0, 0, 0, 0]
@@ -124,14 +139,27 @@ class TrainingRequest(ModelMutationRequest):
     )
 
 
+@app.exception_handler(Exception)
+async def generic_exception_handler(_: Request, e: Exception):
+    log.error(f"An error occurred: {str(e)}")
+    raise HTTPException(status_code=500, detail="Please refer to server logs")
+
+
+@app.exception_handler(KeyError)
+async def key_error_handler(_: Request, e: KeyError):
+    raise HTTPException(status_code=404, detail=f"Not found error occurred: {str(e)}")
+
+
+@app.exception_handler(ValueError)
+async def value_error_handler(_: Request, e: ValueError):
+    raise HTTPException(status_code=400, detail=f"Value error occurred: {str(e)}")
+
+
 @app.post("/model/")
 def create_model(body: CreateModelRequest = Body(...)):
-    try:
-        model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.init_algo)
-        model.serialize()
-        return {"message": f"Model {body.model_id} created and saved successfully"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.init_algo)
+    model.serialize()
+    return {"message": f"Model {body.model_id} created and saved successfully"}
 
 
 @app.post("/output/")
@@ -146,53 +174,80 @@ def compute_model_output(body:
                                      "input": example
                                  }
                              } for idx, example in enumerate(EXAMPLES)} )):
-    try:
-        model = NeuralNetworkModel.deserialize(body.model_id)
-        activation_vector = body.input.activation_vector
-        training_vector = body.input.training_vector
-        activation_algo = body.activation_algo
-        output_vector, cost, cost_derivative_wrt_weights, cost_derivative_wrt_biases = (
-            model.compute_output(activation_vector, activation_algo, training_vector))
-        return {"output_vector": output_vector,
-                "cost": cost,
-                "cost_derivative_wrt_weights": cost_derivative_wrt_weights,
-                "cost_derivative_wrt_biases": cost_derivative_wrt_biases,
-                }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    model = NeuralNetworkModel.deserialize(body.model_id)
+    activation_vector = body.input.activation_vector
+    training_vector = body.input.training_vector
+    activation_algo = body.activation_algo
+    output_vector, cost, cost_derivative_wrt_weights, cost_derivative_wrt_biases = (
+        model.compute_output(activation_vector, activation_algo, training_vector))
+    return {"output_vector": output_vector,
+            "cost": cost,
+            "cost_derivative_wrt_weights": cost_derivative_wrt_weights,
+            "cost_derivative_wrt_biases": cost_derivative_wrt_biases,
+            }
 
 
 @app.put("/train/")
 async def train_model(body: TrainingRequest = Body(...)):
-    try:
-        model = NeuralNetworkModel.deserialize(body.model_id)
+    model = NeuralNetworkModel.deserialize(body.model_id)
 
-        async def train():
-            model.train(
-                [(data.activation_vector, data.training_vector) for data in body.training_data],
-                activation_algo= body.activation_algo,
-                epochs=body.epochs,
-                learning_rate=body.learning_rate,
-            )
+    async def train():
+        model.train(
+            [(data.activation_vector, data.training_vector) for data in body.training_data],
+            activation_algo= body.activation_algo,
+            epochs=body.epochs,
+            learning_rate=body.learning_rate,
+        )
 
-        asyncio.create_task(train())
-        return JSONResponse(content={"message": "Training started asynchronously."}, status_code=202)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    asyncio.create_task(train())
+    return JSONResponse(content={"message": "Training started asynchronously."}, status_code=202)
 
 
 @app.get("/progress/")
 def model_progress(model_id: str = Query(..., description="The unique identifier for the model.")):
-    try:
-        model = NeuralNetworkModel.deserialize(model_id)
-        return {
-            "progress": model.progress
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+    model = NeuralNetworkModel.deserialize(model_id)
+    return {
+        "progress": model.progress
+    }
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app,
+                host="127.0.0.1",
+                port=8000,
+                log_config={
+                    "version": 1,
+                    "disable_existing_loggers": False,
+                    "formatters": {
+                        "default": {
+                            "format": LOG_FORMAT,
+                            "datefmt": DATE_FORMAT,
+                        },
+                    },
+                    "handlers": {
+                        "default": {
+                            "level": "INFO",
+                            "class": "logging.StreamHandler",
+                            "formatter": "default",
+                        },
+                    },
+                    "loggers": {
+                        "uvicorn": {
+                            "level": "INFO",
+                            "handlers": ["default"],
+                            "propagate": False,
+                        },
+                        "uvicorn.error": {
+                            "level": "INFO",
+                            "handlers": ["default"],
+                            "propagate": False,
+                        },
+                        "uvicorn.access": {
+                            "level": "INFO",
+                            "handlers": ["default"],
+                            "propagate": False,
+                        },
+                    },
+                })
