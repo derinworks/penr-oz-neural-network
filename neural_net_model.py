@@ -1,6 +1,13 @@
 import json
+import logging
 import os
-from functions import *
+import numpy as np
+import functions as func
+from datetime import datetime as dt
+
+
+log = logging.getLogger(__name__)
+
 
 class NeuralNetworkModel:
     def __init__(self, model_id, layer_sizes, init_algo="xavier"):
@@ -44,11 +51,11 @@ class NeuralNetworkModel:
         :return: Activated NumPy array.
         """
         if algo == "sigmoid":
-            return sigmoid(output_array)
+            return func.sigmoid(output_array)
         elif algo == "relu":
-            return relu(output_array)
+            return func.relu(output_array)
         elif algo == "tanh":
-            return tanh(output_array)
+            return func.tanh(output_array)
         else:
             raise ValueError(f"Unsupported activation algorithm: {algo}")
 
@@ -61,11 +68,11 @@ class NeuralNetworkModel:
         :return: Derivative of the activation of output NumPy array.
         """
         if algo == "sigmoid":
-            return sigmoid_derivative(output_array)
+            return func.sigmoid_derivative(output_array)
         elif algo == "relu":
-            return relu_derivative(output_array)
+            return func.relu_derivative(output_array)
         elif algo == "tanh":
-            return tanh_derivative(output_array)
+            return func.tanh_derivative(output_array)
         else:
             raise ValueError(f"Unsupported derivative of activation algorithm: {algo}")
 
@@ -80,14 +87,18 @@ class NeuralNetworkModel:
         }
         with open(full_path, 'w', encoding='utf-8') as f:
             json.dump(model_data, f, indent=4)
-        print(f"Model saved successfully: {full_path}")
+        log.info(f"Model saved successfully: {full_path}")
 
     @classmethod
     def deserialize(cls, model_id):
         filepath = f"model_{model_id}.json"
         full_path = os.path.join("models", filepath)
-        with open(full_path, 'r', encoding='utf-8') as f:
-            model_data = json.load(f)
+        try:
+            with open(full_path, 'r', encoding='utf-8') as f:
+                model_data = json.load(f)
+        except FileNotFoundError as e:
+            log.error(f"File not found error occurred: {str(e)}")
+            raise KeyError(f"Model {model_id} not created yet.")
         layer_sizes = [len(model_data["weights"][0])] + [len(w[0]) for w in model_data["weights"]]
         model = cls(model_id, layer_sizes)
         model.weights = model_data["weights"]
@@ -111,8 +122,8 @@ class NeuralNetworkModel:
 
         if training_vector is not None:
             training_array = np.array(training_vector)
-            cost = mean_squared_error(activations[-1], training_array)
-            cost_derivative_wrt_output = mean_squared_error_derivative(activations[-1], training_array)
+            cost = func.mean_squared_error(activations[-1], training_array)
+            cost_derivative_wrt_output = func.mean_squared_error_derivative(activations[-1], training_array)
             output_derivative_wrt_activation = self.derivative_with_algo(activation_algo, output_arrays[-1])
             cost_derivative_wrt_activation = cost_derivative_wrt_output * output_derivative_wrt_activation
 
@@ -188,8 +199,8 @@ class NeuralNetworkModel:
             self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate)
 
             # Record progress
-            self.progress.append(f"Epoch {epoch + 1}/{epochs}, Cost: {total_cost / len(training_data):.4f}")
-            print(self.progress[-1])
+            self.progress.append(f"{dt.now().isoformat()} - Epoch {epoch + 1}/{epochs}, Cost: {total_cost / len(training_data):.4f}")
+            print(f"Model {self.model_id}: {self.progress[-1]}")
 
         # Serialize model after training
         self.serialize()
