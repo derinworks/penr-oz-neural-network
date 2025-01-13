@@ -63,22 +63,64 @@ To prevent overflow in the sigmoid function:
 
 Values of `z` are clipped to the range `[-500, 500]` to avoid numerical instability.
 
+# Penr-Oz Neural Network
+
 ## Quickstart Guide
 
-1. Clone the repository:
+1. **Clone the Repository**:
    ```bash
    git clone https://github.com/derinworks/penr-oz-neural-network.git
+   cd penr-oz-neural-network
    ```
 
-2. Install dependencies:
+2. **Create and Activate a Virtual Environment**:
+   - **Create**:
+     ```bash
+     python -m venv venv
+     ```
+   - **Activate**:
+     - On Unix or macOS:
+       ```bash
+       source venv/bin/activate
+       ```
+     - On Windows:
+       ```bash
+       venv\Scripts\activate
+       ```
+
+3. **Install Dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Run the microservice:
+4. **Run the Service**:
+   ```bash
+   python main.py
+   ```
+   or
    ```bash
    uvicorn main:app --reload
    ```
 
-4. Test the endpoints using Swagger at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+5. **Interact with the Service**
+Test the endpoints using Swagger at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
 
+---
+
+## Testing and Coverage
+
+To ensure code quality and maintainability, follow these steps to run tests and check code coverage:
+
+1. **Run Tests with Coverage**:
+   Execute the following commands to run tests and generate a coverage report:
+   ```bash
+   coverage run -m unittest discover
+   coverage report
+   ```
+
+2. **Generate HTML Coverage Report** (Optional):
+   For a detailed coverage report in HTML format:
+   ```bash
+   coverage html
+   ```
+   Open the `htmlcov/index.html` file in a web browser to view the report.
