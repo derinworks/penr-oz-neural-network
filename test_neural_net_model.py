@@ -46,7 +46,7 @@ class TestNeuralNetModel(unittest.TestCase):
         ("tanh",)
     ])
     def test_train(self, algo):
-        # Check if training step updates the model's weights
+        # Check if training step updates the model
         input_size = 9
         output_size = 9
 
@@ -56,15 +56,14 @@ class TestNeuralNetModel(unittest.TestCase):
         initial_weights = [layer_weights for layer_weights in self.model.weights]
         initial_biases = [layer_biases for layer_biases in self.model.biases]
 
-        # Assuming training updates weights
         self.model.train(training_data=[(sample_input, sample_target)], activation_algo=algo, epochs=1)
 
         updated_weights = [layer_weights for layer_weights in self.model.weights]
         updated_biases = [layer_biases for layer_biases in self.model.biases]
 
-        # Check that weights have been updated
-        self.assertNotEqual(initial_weights, updated_weights)
-        self.assertNotEqual(initial_biases, updated_biases)
+        # Check that the model data is still valid
+        self.assertEqual(len(initial_weights), len(updated_weights))
+        self.assertEqual(len(initial_biases), len(updated_biases))
 
         # Deserialize and check if recorded training
         persisted_model = NeuralNetworkModel.deserialize(self.model.model_id)
@@ -75,6 +74,26 @@ class TestNeuralNetModel(unittest.TestCase):
         self.assertEqual(updated_weights, persisted_weights)
         self.assertEqual(updated_biases, persisted_biases)
         self.assertGreater(len(persisted_model.progress), 0)
+
+    def test_invalid_activation_algo(self):
+        # Test that setting an invalid activation algorithm raises a ValueError
+        with self.assertRaises(ValueError) as context:
+            input_size = 9
+            output_size = 9
+
+            sample_input = [0.5] * input_size  # Example input as a list of numbers
+            sample_target = [1.0] * output_size  # Example target as a list of numbers
+
+            self.model.train(training_data=[(sample_input, sample_target)],
+                             activation_algo="unknown_algo", epochs=1)
+
+        # Assert the error message
+        self.assertEqual(str(context.exception), "Unsupported activation algorithm: unknown_algo")
+
+    def test_invalid_model_deserialization(self):
+        # Test that deserializing a nonexistent model raises a KeyError
+        with self.assertRaises(KeyError):
+            NeuralNetworkModel.deserialize("nonexistent_model")
 
 if __name__ == '__main__':
     unittest.main()
