@@ -142,7 +142,7 @@ class TrainingRequest(ModelMutationRequest):
 @app.exception_handler(Exception)
 async def generic_exception_handler(_: Request, e: Exception):
     log.error(f"An error occurred: {str(e)}")
-    raise HTTPException(status_code=500, detail="Please refer to server logs")
+    return JSONResponse(status_code=500, content={"detail": "Please refer to server logs"})
 
 
 @app.exception_handler(KeyError)

@@ -46,7 +46,7 @@ class TestNeuralNetModel(unittest.TestCase):
         ("tanh",)
     ])
     def test_train(self, algo):
-        # Check if training step updates the model's weights
+        # Check if training step updates the model
         input_size = 9
         output_size = 9
 
@@ -75,6 +75,26 @@ class TestNeuralNetModel(unittest.TestCase):
         self.assertEqual(updated_weights, persisted_weights)
         self.assertEqual(updated_biases, persisted_biases)
         self.assertGreater(len(persisted_model.progress), 0)
+
+    def test_invalid_activation_algo(self):
+        # Test that setting an invalid activation algorithm raises a ValueError
+        with self.assertRaises(ValueError) as context:
+            input_size = 9
+            output_size = 9
+
+            sample_input = [0.5] * input_size  # Example input as a list of numbers
+            sample_target = [1.0] * output_size  # Example target as a list of numbers
+
+            self.model.train(training_data=[(sample_input, sample_target)],
+                             activation_algo="unknown_algo", epochs=1)
+
+        # Assert the error message
+        self.assertEqual(str(context.exception), "Unsupported activation algorithm: unknown_algo")
+
+    def test_invalid_model_deserialization(self):
+        # Test that deserializing a nonexistent model raises a KeyError
+        with self.assertRaises(KeyError):
+            NeuralNetworkModel.deserialize("nonexistent_model")
 
 if __name__ == '__main__':
     unittest.main()

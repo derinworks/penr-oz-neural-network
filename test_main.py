@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 from main import app
 
 
-client = TestClient(app)
+client = TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -19,7 +19,6 @@ def mock_new_model():
 def mock_deserialized_model():
     with patch("neural_net_model.NeuralNetworkModel.deserialize") as mock_deserialize:
         mock_instance = MagicMock()
-        # MockModel.return_value = mock_instance
         mock_deserialize.return_value = mock_instance
         yield mock_instance
 
@@ -104,3 +103,58 @@ def test_progress_endpoint(mock_deserialized_model):
             "Some progress"
         ]
     }
+
+
+def test_not_found(mock_deserialized_model):
+    mock_deserialized_model.compute_output.side_effect = KeyError("Testing key error :-)")
+
+    response = client.post("/output/", json={
+        "model_id": "nonexistent",
+        "activation_algo": "sigmoid",
+        "input": {
+            "activation_vector": [0, 0, 0]
+        }
+    })
+
+    assert response.status_code == 404
+    assert response.json() == {'detail': "Not found error occurred: 'Testing key error :-)'"}
+
+
+def test_invalid_payload():
+    response = client.post("/output/", json={
+        "model_id": "test",
+        # Missing "input" key
+    })
+
+    assert response.status_code == 422
+    assert "detail" in response.json()
+
+
+def test_value_error(mock_deserialized_model):
+    mock_deserialized_model.compute_output.side_effect = ValueError("Testing value error :-)")
+
+    response = client.post("/output/", json={
+        "model_id": "test",
+        "activation_algo": "sigmoid",
+        "input": {
+            "activation_vector": [0, 0, 0]
+        }
+    })
+
+    assert response.status_code == 400
+    assert response.json() == {'detail': 'Value error occurred: Testing value error :-)'}
+
+
+def test_unhandled_exception(mock_deserialized_model):
+    mock_deserialized_model.compute_output.side_effect = RuntimeError("Unexpected error")
+
+    response = client.post("/output/", json={
+        "model_id": "test",
+        "activation_algo": "sigmoid",
+        "input": {
+            "activation_vector": [0, 0, 0]
+        }
+    })
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Please refer to server logs"}
