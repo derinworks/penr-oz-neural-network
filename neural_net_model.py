@@ -3,6 +3,7 @@ import logging
 import os
 import numpy as np
 import functions as func
+import time
 from datetime import datetime as dt
 
 
@@ -170,6 +171,7 @@ class NeuralNetworkModel:
         :param learning_rate: Learning rate for gradient descent.
         """
         self.progress = []
+        last_serialized = time.time()
         for epoch in range(epochs):
             np.random.shuffle(training_data)
             avg_cost_derivatives_wrt_weights = [np.zeros_like(np.array(w)) for w in self.weights]
@@ -195,6 +197,10 @@ class NeuralNetworkModel:
             # Record progress
             self.progress.append(f"{dt.now().isoformat()} - Epoch {epoch + 1}/{epochs}, Cost: {total_cost / len(training_data):.4f}")
             print(f"Model {self.model_id}: {self.progress[-1]}")
+
+            # Serialize model after 10 secs while training
+            if time.time() - last_serialized >= 10:
+                self.serialize()
 
         # Serialize model after training
         self.serialize()
