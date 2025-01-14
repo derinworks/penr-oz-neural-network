@@ -114,7 +114,7 @@ To ensure code quality and maintainability, follow these steps to run tests and 
 1. **Run Tests with Coverage**:
    Execute the following commands to run tests and generate a coverage report:
    ```bash
-   coverage run -m unittest discover
+   coverage run -m pytest
    coverage report
    ```
 
