@@ -1,9 +1,9 @@
 import unittest
+from parameterized import parameterized
 from neural_net_model import NeuralNetworkModel
 
 class TestNeuralNetModel(unittest.TestCase):
     def setUp(self):
-        # Initialize the model and any required components
         self.model = NeuralNetworkModel(model_id="test", layer_sizes=[9, 9, 9])
 
     def test_model_initialization(self):
@@ -40,23 +40,41 @@ class TestNeuralNetModel(unittest.TestCase):
             self.assertIsInstance(value, float)  # Ensure output values are floats
             self.assertGreaterEqual(value, 0.0)  # Assuming non-negative outputs (e.g., ReLU activation)
 
-    def test_train(self):
-        # Check if a single training step updates the model's weights
-        input_size = 9  # Replace with actual input size of your model
-        output_size = 9  # Replace with actual output size of your model
+    @parameterized.expand([
+        ("relu",),
+        ("sigmoid",),
+        ("tanh",)
+    ])
+    def test_train(self, algo):
+        # Check if training step updates the model's weights
+        input_size = 9
+        output_size = 9
 
         sample_input = [0.5] * input_size  # Example input as a list of numbers
         sample_target = [1.0] * output_size  # Example target as a list of numbers
 
         initial_weights = [layer_weights for layer_weights in self.model.weights]
+        initial_biases = [layer_biases for layer_biases in self.model.biases]
 
         # Assuming training updates weights
-        self.model.train(training_data=[(sample_input, sample_target)], epochs=1)
+        self.model.train(training_data=[(sample_input, sample_target)], activation_algo=algo, epochs=1)
 
         updated_weights = [layer_weights for layer_weights in self.model.weights]
+        updated_biases = [layer_biases for layer_biases in self.model.biases]
 
         # Check that weights have been updated
         self.assertNotEqual(initial_weights, updated_weights)
+        self.assertNotEqual(initial_biases, updated_biases)
+
+        # Deserialize and check if recorded training
+        persisted_model = NeuralNetworkModel.deserialize(self.model.model_id)
+
+        persisted_weights = [layer_weights for layer_weights in persisted_model.weights]
+        persisted_biases = [layer_biases for layer_biases in persisted_model.biases]
+
+        self.assertEqual(updated_weights, persisted_weights)
+        self.assertEqual(updated_biases, persisted_biases)
+        self.assertGreater(len(persisted_model.progress), 0)
 
 if __name__ == '__main__':
     unittest.main()
