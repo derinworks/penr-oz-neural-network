@@ -18,23 +18,17 @@ class NeuralNetworkModel:
         :param init_algo: Initialization algorithm for weights (default: "xavier").
         """
         self.model_id = model_id
-        if init_algo == "xavier":
-            self.weights = [
-                (np.random.randn(layer_sizes[i], layer_sizes[i + 1])
-                 * np.sqrt(1 / layer_sizes[i])).tolist()
-                for i in range(len(layer_sizes) - 1)
-            ]
-        elif init_algo == "he":
-            self.weights = [
-                (np.random.randn(layer_sizes[i], layer_sizes[i + 1])
-                 * np.sqrt(2 / layer_sizes[i])).tolist()
-                for i in range(len(layer_sizes) - 1)
-            ]
-        else: # init algo gaussian
-            self.weights = [
-                np.random.randn(layer_sizes[i], layer_sizes[i + 1]).tolist()
-                for i in range(len(layer_sizes) - 1)
-            ]
+
+        scaling_factors = {
+            "xavier": lambda i: np.sqrt(1 / layer_sizes[i]),
+            "he": lambda i: np.sqrt(2 / layer_sizes[i]),
+            "gaussian": lambda i: 1
+        }
+        self.weights = [
+            (np.random.randn(layer_sizes[i], layer_sizes[i + 1])
+             * scaling_factors.get(init_algo, scaling_factors["gaussian"])(i)).tolist()
+            for i in range(len(layer_sizes) - 1)
+        ]
 
         self.biases = [
             np.random.randn(layer_size).tolist()
