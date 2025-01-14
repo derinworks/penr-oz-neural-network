@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.params import Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from neural_net_model import NeuralNetworkModel
 import asyncio
@@ -154,6 +154,9 @@ async def key_error_handler(_: Request, e: KeyError):
 async def value_error_handler(_: Request, e: ValueError):
     raise HTTPException(status_code=400, detail=f"Value error occurred: {str(e)}")
 
+@app.get("/", include_in_schema=False)
+def redirect_to_docs():
+    return RedirectResponse(url="/docs")
 
 @app.post("/model/")
 def create_model(body: CreateModelRequest = Body(...)):
