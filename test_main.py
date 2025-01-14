@@ -22,6 +22,10 @@ def mock_deserialized_model():
         mock_deserialize.return_value = mock_instance
         yield mock_instance
 
+def test_redirect_to_docs():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.url.path == "/docs"
 
 def test_model_endpoint(mock_new_model):
     payload = {
