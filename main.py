@@ -100,7 +100,7 @@ class CreateModelRequest(ModelRequest):
         description="A list of integers representing the sizes of each layer in the neural network."
     )
     init_algo: str = Field(
-        ...,
+        "xavier",
         examples=["xavier"],
         description="An initialization algorithm"
     )
@@ -108,7 +108,7 @@ class CreateModelRequest(ModelRequest):
 
 class ModelMutationRequest(ModelRequest):
     activation_algo: str = Field(
-        ...,
+        "sigmoid",
         examples=["sigmoid"],
         description="The activation algorithm to apply"
     )
@@ -128,12 +128,12 @@ class TrainingRequest(ModelMutationRequest):
         description="A list of training data pairs."
     )
     epochs: int = Field(
-        ...,
+        10,
         examples=[10],
         description="The number of training epochs."
     )
     learning_rate: float = Field(
-        ...,
+        0.01,
         examples=[0.01],
         description="The learning rate for training."
     )
