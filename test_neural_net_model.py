@@ -95,5 +95,14 @@ class TestNeuralNetModel(unittest.TestCase):
         with self.assertRaises(KeyError):
             NeuralNetworkModel.deserialize("nonexistent_model")
 
+    def test_delete(self):
+        NeuralNetworkModel.delete("test")
+        with self.assertRaises(KeyError):
+            NeuralNetworkModel.deserialize("test")
+
+    def test_invalid_delete(self):
+        # No error raised for failing to delete
+        NeuralNetworkModel.delete("nonexistent")
+
 if __name__ == '__main__':
     unittest.main()

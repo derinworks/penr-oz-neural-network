@@ -2,7 +2,7 @@ import logging
 
 from fastapi import FastAPI, HTTPException, Body, Request
 from fastapi.params import Query
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 from neural_net_model import NeuralNetworkModel
 import asyncio
@@ -139,6 +139,10 @@ class TrainingRequest(ModelMutationRequest):
     )
 
 
+class ModelIdQuery(Query):
+    description="The unique identifier for the model."
+
+
 @app.exception_handler(Exception)
 async def generic_exception_handler(_: Request, e: Exception):
     log.error(f"An error occurred: {str(e)}")
@@ -207,11 +211,17 @@ async def train_model(body: TrainingRequest = Body(...)):
 
 
 @app.get("/progress/")
-def model_progress(model_id: str = Query(..., description="The unique identifier for the model.")):
+def model_progress(model_id: str = ModelIdQuery(...)):
     model = NeuralNetworkModel.deserialize(model_id)
     return {
         "progress": model.progress
     }
+
+
+@app.delete("/model/")
+def delete_model(model_id: str = ModelIdQuery(...)):
+    NeuralNetworkModel.delete(model_id)
+    return Response(status_code=204)
 
 
 if __name__ == "__main__":

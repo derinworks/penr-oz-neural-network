@@ -101,6 +101,15 @@ class NeuralNetworkModel:
         model.progress = model_data["progress"]
         return model
 
+    @classmethod
+    def delete(cls, model_id):
+        filepath = f"model_{model_id}.json"
+        full_path = os.path.join("models", filepath)
+        try:
+            os.remove(full_path)
+        except FileNotFoundError as e:
+            log.warning(f"Failed to delete: {str(e)}")
+
     def compute_output(self, activation_vector, activation_algo="sigmoid", training_vector=None):
         """
         Compute activated output and optionally also cost compared to the provided training data.

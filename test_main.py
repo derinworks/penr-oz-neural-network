@@ -22,12 +22,20 @@ def mock_deserialized_model():
         mock_deserialize.return_value = mock_instance
         yield mock_instance
 
+
+@pytest.fixture
+def mock_delete_model():
+    with patch("neural_net_model.NeuralNetworkModel.delete") as mock_delete:
+        yield mock_delete
+
+
 def test_redirect_to_docs():
     response = client.get("/")
     assert response.status_code == 200
     assert response.url.path == "/docs"
 
-def test_model_endpoint(mock_new_model):
+
+def test_create_model_endpoint(mock_new_model):
     payload = {
         "model_id": "test",
         "layer_sizes": [9, 9, 9],
@@ -162,3 +170,11 @@ def test_unhandled_exception(mock_deserialized_model):
 
     assert response.status_code == 500
     assert response.json() == {"detail": "Please refer to server logs"}
+
+
+def test_delete_model_endpoint(mock_delete_model):
+    response = client.delete("/model/", params={"model_id": "test"})
+
+    assert response.status_code == 204
+
+    mock_delete_model.assert_called_once()
