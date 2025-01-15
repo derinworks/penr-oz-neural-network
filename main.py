@@ -26,43 +26,39 @@ log = logging.getLogger(__name__)
 EXAMPLES = [
     {
         "activation_vector": [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        "training_vector": [0, 0, 0, 0, 1., 0, 0, 0, 0]
+        "training_vector":   [0, 0, 0, 0, 1, 0, 0, 0, 0]
     },
     {
-        "activation_vector": [0, 0, 0, 0, 2, 0, 0, 0, 0],
-        "training_vector": [1., 0, 0, 0, 0, 0, 0, 0, 0]
+        "activation_vector": [0, 0, 0, 0,.5, 0, 0, 0, 0],
+        "training_vector":   [1, 0, 0, 0, 0, 0, 0, 0, 0]
     },
     {
-        "activation_vector": [1, 0, 0, 0, 2, 0, 0, 0, 0],
-        "training_vector": [0, 1., 0, 0, 0, 0, 0, 0, 0]
+        "activation_vector": [1, 0, 0, 0,.5, 0, 0, 0, 0],
+        "training_vector":   [0, 1, 0, 0, 0, 0, 0, 0, 0]
     },
     {
-        "activation_vector": [1, 2, 0, 0, 2, 0, 0, 0, 0],
-        "training_vector": [0, 0, 0, 0, 0, 0, 0, 1., 0]
+        "activation_vector": [1,.5, 0, 0,.5, 0, 0, 0, 0],
+        "training_vector":   [0, 0, 0, 0, 0, 0, 0, 1, 0]
     },
     {
-        "activation_vector": [1, 2, 0, 0, 2, 0, 0, 1, 0],
-        "training_vector": [0, 0, 1., 0, 0, 0, 0, 0, 0]
+        "activation_vector": [1,.5, 0, 0,.5, 0, 0, 1, 0],
+        "training_vector":   [0, 0, 1, 0, 0, 0, 0, 0, 0]
     },
     {
-        "activation_vector": [1, 2, 2, 0, 2, 0, 0, 1, 0],
-        "training_vector": [0, 0, 0, 0, 0, 0, 1., 0, 0]
+        "activation_vector": [1,.5,.5, 0,.5, 0, 0, 1, 0],
+        "training_vector":   [0, 0, 0, 0, 0, 0, 1, 0, 0]
     },
     {
-        "activation_vector": [1, 2, 2, 0, 2, 0, 1, 1, 0],
-        "training_vector": [0, 0, 0, 0, 0, 0, 0, 0, 1.]
+        "activation_vector": [1,.5,.5, 0,.5, 0, 1, 1, 0],
+        "training_vector":   [0, 0, 0, 0, 0, 0, 0, 0, 1]
     },
     {
-        "activation_vector": [1, 2, 2, 0, 2, 0, 1, 1, 2],
-        "training_vector": [0, 0, 0, 1., 0, 0, 0, 0, 0]
+        "activation_vector": [1,.5,.5, 0,.5, 0, 1, 1,.5],
+        "training_vector":   [0, 0, 0, 1, 0, 0, 0, 0, 0]
     },
     {
-        "activation_vector": [1, 2, 2, 1, 2, 0, 1, 1, 2],
-        "training_vector": [0, 0, 0, 0, 0, 1., 0, 0, 0]
-    },
-    {
-        "activation_vector": [1, 2, 2, 1, 2, 2, 1, 1, 2],
-        "training_vector": [0, 0, 0, 0, 0, 1., 0, 0, 0]
+        "activation_vector": [1,.5,.5, 1,.5, 0, 1, 1,.5],
+        "training_vector":   [0, 0, 0, 0, 0, 1, 0, 0, 0]
     },
 ]
 

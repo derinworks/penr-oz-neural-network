@@ -11,12 +11,12 @@ def sigmoid(x):
 
 def sigmoid_derivative(x):
     """
-    Takes a NumPy array x (already sigmoid activated) and returns an array of the same shape
+    Takes a NumPy array x (raw pre-activation or sigmoid activated) and returns the derivative of sigmoid.
     :param x: a NumPy array x
     :return: Derivative of sigmoid function
     """
-    x = np.clip(x, 0, 1)  # Avoid invalid values resulting from NaN or Inf
-    return x * (1 - x)
+    sig = sigmoid(x)  # Ensure sigmoid is applied if x is pre-activation
+    return sig * (1 - sig)
 
 def relu(x):
     """
@@ -67,3 +67,4 @@ def mean_squared_error_derivative(x1, x2):
     :return: Derivative of the mean squared error between a NumPy array 1 to 2
     """
     return 2 * (x1 - x2)
+

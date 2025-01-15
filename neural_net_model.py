@@ -135,8 +135,8 @@ class NeuralNetworkModel:
             cost_derivatives_wrt_biases = []
 
             for layer in range(len(self.weights) - 1, -1, -1):
-                activation_derivative_wrt_weights = activations[layer - 1]
-                cost_derivative_wrt_weights = np.outer(activation_derivative_wrt_weights, cost_derivative_wrt_activation)
+                activation_derivative_wrt_weights = activations[layer - 1][:, np.newaxis]
+                cost_derivative_wrt_weights = cost_derivative_wrt_activation[np.newaxis, :] * activation_derivative_wrt_weights
                 cost_derivatives_wrt_weights.insert(0, cost_derivative_wrt_weights.tolist())
 
                 cost_derivative_wrt_biases = cost_derivative_wrt_activation
@@ -170,7 +170,7 @@ class NeuralNetworkModel:
             self.biases[layer] = (np.array(self.biases[layer]) -
                                   learning_rate * np.array(avg_cost_derivatives_wrt_biases[layer])).tolist()
 
-    def train(self, training_data, activation_algo='sigmoid', epochs=100, learning_rate=0.01):
+    def train(self, training_data, activation_algo='sigmoid', epochs=100, learning_rate=0.01, decay_rate=0.9):
         """
         Train the neural network using the provided training data.
 
@@ -178,6 +178,7 @@ class NeuralNetworkModel:
         :param activation_algo: Algorithm used to activate
         :param epochs: Number of training iterations.
         :param learning_rate: Learning rate for gradient descent.
+        :param decay_rate: Decay rate of learning rate for finer gradient descent
         """
         self.progress = []
         last_serialized = time.time()
@@ -201,7 +202,8 @@ class NeuralNetworkModel:
             avg_cost_derivatives_wrt_biases = [b / len(training_data) for b in avg_cost_derivatives_wrt_biases]
 
             # Update weights and biases
-            self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate)
+            current_learning_rate = learning_rate * (decay_rate ** epoch)
+            self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, current_learning_rate)
 
             # Record progress
             self.progress.append(f"{dt.now().isoformat()} - Epoch {epoch + 1}/{epochs}, Cost: {total_cost / len(training_data):.4f}")
@@ -213,3 +215,4 @@ class NeuralNetworkModel:
 
         # Serialize model after training
         self.serialize()
+
