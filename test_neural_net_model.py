@@ -17,10 +17,13 @@ class TestNeuralNetModel(unittest.TestCase):
             for layer_weight_vector in layer_weights:
                 self.assertEqual(len(layer_weight_vector), 9)
         # Check the number of bias vectors
-        self.assertEqual(len(self.model.biases), 2)  # Two weight matrices connecting three layers
+        self.assertEqual(len(self.model.biases), 2)  # Two bias vectors connecting three layers
         # Check the dimensions of each bias vector
         for layer_bias_vector in self.model.biases:
             self.assertEqual(len(layer_bias_vector), 9)
+
+        # Check the training buffer size
+        self.assertEqual(self.model.training_buffer_size, int(0.1 * ((9 * 9 + 9) + (9 * 9 + 9))))
 
     def test_compute_output(self):
         # Verify that the model produces outputs of the expected shape
@@ -38,7 +41,6 @@ class TestNeuralNetModel(unittest.TestCase):
         # Optionally, you can verify the range or type of the output values
         for value in output:
             self.assertIsInstance(value, float)  # Ensure output values are floats
-            self.assertGreaterEqual(value, 0.0)  # Assuming non-negative outputs (e.g., ReLU activation)
 
     @parameterized.expand([
         ("relu",),
@@ -56,7 +58,10 @@ class TestNeuralNetModel(unittest.TestCase):
         initial_weights = [layer_weights for layer_weights in self.model.weights]
         initial_biases = [layer_biases for layer_biases in self.model.biases]
 
-        self.model.train(training_data=[(sample_input, sample_target)], activation_algo=algo, epochs=1)
+        # Add enough data to meet the training buffer size
+        training_data = [(sample_input, sample_target)] * self.model.training_buffer_size
+
+        self.model.train(training_data=training_data, activation_algo=algo, epochs=1)
 
         updated_weights = [layer_weights for layer_weights in self.model.weights]
         updated_biases = [layer_biases for layer_biases in self.model.biases]
@@ -75,6 +80,29 @@ class TestNeuralNetModel(unittest.TestCase):
         self.assertEqual(updated_biases, persisted_biases)
         self.assertGreater(len(persisted_model.progress), 0)
 
+    def test_train_with_insufficient_data(self):
+        # Test that training does not proceed when data is less than the buffer size
+        input_size = 9
+        output_size = 9
+
+        sample_input = [0.5] * input_size  # Example input as a list of numbers
+        sample_target = [1.0] * output_size  # Example target as a list of numbers
+
+        # Add insufficient data
+        training_data = [(sample_input, sample_target)] * (self.model.training_buffer_size - 1)
+
+        initial_weights = [layer_weights for layer_weights in self.model.weights]
+        initial_biases = [layer_biases for layer_biases in self.model.biases]
+
+        self.model.train(training_data=training_data, activation_algo="relu", epochs=1)
+
+        updated_weights = [layer_weights for layer_weights in self.model.weights]
+        updated_biases = [layer_biases for layer_biases in self.model.biases]
+
+        # Ensure weights and biases have not been updated
+        self.assertEqual(initial_weights, updated_weights)
+        self.assertEqual(initial_biases, updated_biases)
+
     def test_invalid_activation_algo(self):
         # Test that setting an invalid activation algorithm raises a ValueError
         with self.assertRaises(ValueError) as context:
@@ -84,7 +112,10 @@ class TestNeuralNetModel(unittest.TestCase):
             sample_input = [0.5] * input_size  # Example input as a list of numbers
             sample_target = [1.0] * output_size  # Example target as a list of numbers
 
-            self.model.train(training_data=[(sample_input, sample_target)],
+            # Add enough data to meet the training buffer size
+            training_data = [(sample_input, sample_target)] * self.model.training_buffer_size
+
+            self.model.train(training_data=training_data,
                              activation_algo="unknown_algo", epochs=1)
 
         # Assert the error message

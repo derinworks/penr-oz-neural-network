@@ -6,9 +6,7 @@ import functions as func
 import time
 from datetime import datetime as dt
 
-
 log = logging.getLogger(__name__)
-
 
 class NeuralNetworkModel:
     def __init__(self, model_id, layer_sizes, init_algo="xavier"):
@@ -36,6 +34,23 @@ class NeuralNetworkModel:
             for layer_size in layer_sizes[1:]
         ]
         self.progress = []
+
+        # Training data buffer
+        self.training_data_buffer = []
+
+        # Calculate training buffer size based on total parameters
+        self.training_buffer_size = self._calculate_buffer_size(layer_sizes)
+
+    @staticmethod
+    def _calculate_buffer_size(layer_sizes):
+        """
+        Calculate training data buffer size based on total number of parameters in the network.
+        """
+        total_params = sum(
+            layer_sizes[i] * layer_sizes[i + 1] + layer_sizes[i + 1]
+            for i in range(len(layer_sizes) - 1)
+        )
+        return int(0.1 * total_params)  # Buffer size is 10% of total parameters
 
     @classmethod
     def activate_with_algo(cls, algo, output_array):
@@ -78,7 +93,9 @@ class NeuralNetworkModel:
         model_data = {
             "weights": self.weights,
             "biases": self.biases,
-            "progress": self.progress
+            "progress": self.progress,
+            "training_buffer_size": self.training_buffer_size,
+            "training_data_buffer": self.training_data_buffer
         }
         with open(full_path, 'w', encoding='utf-8') as f:
             json.dump(model_data, f, indent=4)
@@ -99,6 +116,8 @@ class NeuralNetworkModel:
         model.weights = model_data["weights"]
         model.biases = model_data["biases"]
         model.progress = model_data["progress"]
+        model.training_buffer_size = model_data["training_buffer_size"]
+        model.training_data_buffer = model_data["training_data_buffer"]
         return model
 
     @classmethod
@@ -180,6 +199,21 @@ class NeuralNetworkModel:
         :param learning_rate: Learning rate for gradient descent.
         :param decay_rate: Decay rate of learning rate for finer gradient descent
         """
+        # Combine incoming training data with buffered data
+        self.training_data_buffer.extend(training_data)
+
+        # Check if buffer size is sufficient
+        if len(self.training_data_buffer) < self.training_buffer_size:
+            print(f"Model {self.model_id}: Insufficient training data. "
+                  f"Current buffer size: {len(self.training_data_buffer)}, "
+                  f"required: {self.training_buffer_size}")
+            self.serialize() # serialize model with partial training data for next time
+            return
+
+        # Proceed with training using combined data if buffer size is sufficient
+        training_data = self.training_data_buffer
+        self.training_data_buffer = []  # Clear buffer
+
         self.progress = []
         last_serialized = time.time()
         for epoch in range(epochs):
@@ -215,4 +249,3 @@ class NeuralNetworkModel:
 
         # Serialize model after training
         self.serialize()
-
