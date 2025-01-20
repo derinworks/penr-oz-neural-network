@@ -146,24 +146,36 @@ class NeuralNetworkModel:
         if training_vector is not None:
             training_array = np.array(training_vector)
             cost = func.mean_squared_error(activations[-1], training_array)
+            # collect cost derivatives
+            cost_derivatives_wrt_weights = []
+            cost_derivatives_wrt_biases = []
+            # start derivatives at output edge with training array
             cost_derivative_wrt_output = func.mean_squared_error_derivative(activations[-1], training_array)
             output_derivative_wrt_activation = self.derivative_with_algo(activation_algo, output_arrays[-1])
             cost_derivative_wrt_activation = cost_derivative_wrt_output * output_derivative_wrt_activation
-
-            cost_derivatives_wrt_weights = []
-            cost_derivatives_wrt_biases = []
-
+            # now stepping backwards in layers (one less than number of activation edges)
             for layer in range(len(self.weights) - 1, -1, -1):
-                activation_derivative_wrt_weights = activations[layer - 1][:, np.newaxis]
-                cost_derivative_wrt_weights = cost_derivative_wrt_activation[np.newaxis, :] * activation_derivative_wrt_weights
+                # one more activation edge than layers so current edge index = (layer index + 1), previous = current - 1
+                # which means previous edge index = (layer + 1) - 1 = current layer index
+                prev_activation_edge = layer
+                # with respect to weights
+                prev_activations = activations[prev_activation_edge] # previous edge of current layer
+                activation_derivative_wrt_weights = prev_activations # cost derivative is the previous activations
+                cost_derivative_wrt_weights = np.outer(activation_derivative_wrt_weights, cost_derivative_wrt_activation)
                 cost_derivatives_wrt_weights.insert(0, cost_derivative_wrt_weights.tolist())
-
+                # with respect to biases
+                # cost derivative is same as current edge derivative of activations with respect to weights
                 cost_derivative_wrt_biases = cost_derivative_wrt_activation
                 cost_derivatives_wrt_biases.insert(0, cost_derivative_wrt_biases.tolist())
-
-                if layer > 0:  # Backpropagate error to previous layers
-                    prev_output_derivative_wrt_activation = self.derivative_with_algo(activation_algo, output_arrays[layer - 1])
-                    prev_layer_weighted_error = np.dot(cost_derivative_wrt_activation, np.array(self.weights[layer]).T)
+                # Backpropagation of cost error to previous layers except last one
+                if layer > 0:
+                    # same number of output edges as layers
+                    # each layer has output on current edge. previous output edge = current layer - 1
+                    prev_output_edge = layer - 1
+                    prev_output_array = output_arrays[prev_output_edge]
+                    prev_output_derivative_wrt_activation = self.derivative_with_algo(activation_algo, prev_output_array)
+                    layer_weights_array_transposed = np.array(self.weights[layer]).T
+                    prev_layer_weighted_error = np.dot(cost_derivative_wrt_activation, layer_weights_array_transposed)
                     cost_derivative_wrt_activation = prev_layer_weighted_error * prev_output_derivative_wrt_activation
         else:
             cost = None
