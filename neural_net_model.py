@@ -260,8 +260,13 @@ class NeuralNetworkModel:
             self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, current_learning_rate)
 
             # Record progress
-            self.progress.append(f"{dt.now().isoformat()} - Epoch {epoch + 1}/{epochs}, Cost: {total_cost / len(training_data):.4f}")
-            print(f"Model {self.model_id}: {self.progress[-1]}")
+            self.progress.append({
+                "dt": dt.now().isoformat(),
+                "epoch": epoch + 1,
+                "cost": total_cost / len(training_data)
+            })
+            last_progress = self.progress[-1]
+            print(f"Model {self.model_id}: {last_progress["dt"]} - Epoch {last_progress["epoch"]}, Cost: {last_progress["cost"]:.4f} ")
 
             # Serialize model after 10 secs while training
             if time.time() - last_serialized >= 10:
