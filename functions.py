@@ -11,8 +11,8 @@ def sigmoid(x):
 
 def sigmoid_derivative(x):
     """
-    Takes a NumPy array x (raw pre-activation or sigmoid activated) and returns the derivative of sigmoid.
-    :param x: a NumPy array x
+    Takes a NumPy array x (raw pre-activation) and returns the derivative of sigmoid.
+    :param x: a NumPy array x (pre-activated)
     :return: Derivative of sigmoid function
     """
     sig = sigmoid(x)  # Ensure sigmoid is applied if x is pre-activation
@@ -44,8 +44,8 @@ def tanh(x):
 
 def tanh_derivative(x):
     """
-    Takes a NumPy array x and returns the derivative of the tanh function.
-    :param x: a NumPy array x
+    Takes a NumPy array x (pre-activation) and returns the derivative of the tanh function.
+    :param x: a NumPy array x (pre-activated)
     :return: Derivative of tanh activation
     """
     return 1 - np.tanh(x) ** 2
@@ -67,4 +67,30 @@ def mean_squared_error_derivative(x1, x2):
     :return: Derivative of the mean squared error between a NumPy array 1 to 2
     """
     return 2 * (x1 - x2)
+
+def softmax(x):
+    """
+    Compute the softmax of a NumPy array.
+    :param x: a NumPy array x
+    :return: Softmax probabilities of the input.
+    """
+    # Shift input values for numerical stability (prevent overflow/underflow)
+    shift_x = x - np.max(x)
+    # Exponential of shifted values
+    exp_x = np.exp(shift_x)
+    # Normalize by the sum of exponential
+    return exp_x / np.sum(exp_x)
+
+
+def softmax_cross_entropy_gradient(x, y):
+    """
+    Compute the gradient of the cross-entropy loss with softmax for a single sample.
+    :param x: a NumPy array x (1D pre-activation logits for a single sample).
+    :param y: a NumPy array y (1D expected output, either one-hot encoded or a probability distribution).
+    :return: Gradient of the loss with respect to the logits.
+    """
+    # Compute softmax probabilities using softmax function
+    softmax_probs = softmax(x)
+    # Calculate the gradient: softmax_probs - y
+    return softmax_probs - y
 

@@ -5,14 +5,15 @@ from neural_net_model import NeuralNetworkModel
 class TestNeuralNetModel(unittest.TestCase):
 
     @parameterized.expand([
-        ([9, 9, 9], "xavier"),
-        ([18, 9, 3], "xavier"),
-        ([9, 18, 9], "he"),
-        ([4, 8, 16], "he"),
-        ([3, 3, 3, 3], "gaussian"),
+        ([9, 9, 9], "xavier", "random",),
+        ([18, 9, 3], "xavier", "zeros",),
+        ([9, 18, 9], "he", "zeros",),
+        ([4, 8, 16], "he", "random",),
+        ([3, 3, 3, 3], "gaussian", "random",),
     ])
-    def test_model_initialization(self, layer_sizes, algo):
-        model = NeuralNetworkModel(model_id="test", layer_sizes=layer_sizes, init_algo=algo)
+    def test_model_initialization(self, layer_sizes, weight_algo, bias_algo):
+        model = NeuralNetworkModel(model_id="test", layer_sizes=layer_sizes, weight_algo=weight_algo,
+                                   bias_algo=bias_algo)
 
         # Test if the model initializes correctly
         self.assertIsNotNone(model)
@@ -35,13 +36,13 @@ class TestNeuralNetModel(unittest.TestCase):
         self.assertEqual(model.training_buffer_size, expected_buffer_size)
 
     @parameterized.expand([
-        ([9, 9, 9],),
-        ([18, 9, 3],),
-        ([9, 18, 9],),
-        ([4, 8, 16],),
-        ([3, 3, 3, 3],),
+        ([9, 9, 9], ["sigmoid"] * 2,),
+        ([18, 9, 3], ["relu", "softmax"],),
+        ([9, 18, 9], ["tanh"] * 2,),
+        ([4, 8, 16], ["softmax"] * 2,),
+        ([3, 3, 3, 3], ["relu", "relu", "softmax"],),
     ])
-    def test_compute_output(self, layer_sizes):
+    def test_compute_output(self, layer_sizes, algos):
         model = NeuralNetworkModel(model_id="test", layer_sizes=layer_sizes)
 
         # Verify that the model produces outputs of the expected shape
@@ -51,7 +52,7 @@ class TestNeuralNetModel(unittest.TestCase):
         sample_input = [0.5] * input_size  # Example input as a list of numbers
 
         # Call the compute_output method
-        output, _, _, _ = model.compute_output(sample_input)
+        output, _, _, _ = model.compute_output(activation_vector=sample_input, activation_algos=algos)
 
         # Check that the output has the correct size
         self.assertEqual(len(output), output_size)
@@ -61,17 +62,17 @@ class TestNeuralNetModel(unittest.TestCase):
             self.assertIsInstance(value, float)  # Ensure output values are floats
 
     @parameterized.expand([
-        ([9, 9, 9], "sigmoid",),
-        ([9, 9, 9], "relu",),
-        ([9, 9, 9], "tanh",),
-        ([18, 9, 3], "sigmoid",),
-        ([9, 18, 9], "sigmoid",),
-        ([4, 8, 16], "sigmoid",),
-        ([3, 3, 3, 3], "sigmoid",),
-        ([18, 9, 3], "relu",),
-        ([9, 18, 9], "relu",),
+        ([9, 9, 9], ["sigmoid"] * 2,),
+        ([9, 9, 9], ["relu", "softmax"],),
+        ([9, 9, 9], ["tanh"] * 2,),
+        ([18, 9, 3], ["relu", "sigmoid"],),
+        ([9, 18, 9], ["sigmoid", "softmax"],),
+        ([4, 8, 16], ["sigmoid"] * 2,),
+        ([3, 3, 3, 3], ["relu", "relu", "softmax"],),
+        ([18, 9, 3], ["relu"] * 2,),
+        ([9, 18, 9], ["relu", "tanh"],),
     ])
-    def test_train(self, layer_sizes, algo):
+    def test_train(self, layer_sizes, algos):
         model = NeuralNetworkModel(model_id="test", layer_sizes=layer_sizes)
 
         # Check if training step updates the model
@@ -79,7 +80,8 @@ class TestNeuralNetModel(unittest.TestCase):
         output_size = layer_sizes[-1]
 
         sample_input = [0.5] * input_size  # Example input as a list of numbers
-        sample_target = [1.0] * output_size  # Example target as a list of numbers
+        sample_target = [0.0] * output_size  # Example target as a list of numbers
+        sample_target[0] = 1.0
 
         initial_weights = [layer_weights for layer_weights in model.weights]
         initial_biases = [layer_biases for layer_biases in model.biases]
@@ -87,7 +89,7 @@ class TestNeuralNetModel(unittest.TestCase):
         # Add enough data to meet the training buffer size
         training_data = [(sample_input, sample_target)] * model.training_buffer_size
 
-        model.train(training_data=training_data, activation_algo=algo, epochs=1)
+        model.train(training_data=training_data, activation_algos=algos, epochs=1)
 
         updated_weights = [layer_weights for layer_weights in model.weights]
         updated_biases = [layer_biases for layer_biases in model.biases]
@@ -124,7 +126,7 @@ class TestNeuralNetModel(unittest.TestCase):
         # Add insufficient data
         training_data = [(sample_input, sample_target)] * (model.training_buffer_size - 1)
 
-        model.train(training_data=training_data, activation_algo="relu", epochs=1)
+        model.train(training_data=training_data, activation_algos=["relu"] * 2, epochs=1)
 
         # Ensure no training progress and buffering
         self.assertEqual(len(model.progress), 0)
@@ -149,7 +151,7 @@ class TestNeuralNetModel(unittest.TestCase):
 
         # Test that setting an invalid activation algorithm raises a ValueError
         with self.assertRaises(ValueError) as context:
-            model.train(training_data=training_data, activation_algo="unknown_algo", epochs=1)
+            model.train(training_data=training_data, activation_algos=["unknown_algo"] * 2, epochs=1)
 
         # Assert the error message
         self.assertEqual(str(context.exception), "Unsupported activation algorithm: unknown_algo")
