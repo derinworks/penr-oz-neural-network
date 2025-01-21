@@ -26,39 +26,39 @@ log = logging.getLogger(__name__)
 EXAMPLES = [
     {
         "activation_vector": [0, 0, 0, 0, 0, 0, 0, 0, 0],
-        "training_vector":   [0, 0, 0, 0, 1, 0, 0, 0, 0]
+        "target_vector":     [0, 0, 0, 0, 1, 0, 0, 0, 0]
     },
     {
         "activation_vector": [0, 0, 0, 0,.5, 0, 0, 0, 0],
-        "training_vector":   [1, 0, 0, 0, 0, 0, 0, 0, 0]
+        "target_vector":     [1, 0, 0, 0, 0, 0, 0, 0, 0]
     },
     {
         "activation_vector": [1, 0, 0, 0,.5, 0, 0, 0, 0],
-        "training_vector":   [0, 1, 0, 0, 0, 0, 0, 0, 0]
+        "target_vector":     [0, 1, 0, 0, 0, 0, 0, 0, 0]
     },
     {
         "activation_vector": [1,.5, 0, 0,.5, 0, 0, 0, 0],
-        "training_vector":   [0, 0, 0, 0, 0, 0, 0, 1, 0]
+        "target_vector":     [0, 0, 0, 0, 0, 0, 0, 1, 0]
     },
     {
         "activation_vector": [1,.5, 0, 0,.5, 0, 0, 1, 0],
-        "training_vector":   [0, 0, 1, 0, 0, 0, 0, 0, 0]
+        "target_vector":     [0, 0, 1, 0, 0, 0, 0, 0, 0]
     },
     {
         "activation_vector": [1,.5,.5, 0,.5, 0, 0, 1, 0],
-        "training_vector":   [0, 0, 0, 0, 0, 0, 1, 0, 0]
+        "target_vector":     [0, 0, 0, 0, 0, 0, 1, 0, 0]
     },
     {
         "activation_vector": [1,.5,.5, 0,.5, 0, 1, 1, 0],
-        "training_vector":   [0, 0, 0, 0, 0, 0, 0, 0, 1]
+        "target_vector":     [0, 0, 0, 0, 0, 0, 0, 0, 1]
     },
     {
         "activation_vector": [1,.5,.5, 0,.5, 0, 1, 1,.5],
-        "training_vector":   [0, 0, 0, 1, 0, 0, 0, 0, 0]
+        "target_vector":     [0, 0, 0, 1, 0, 0, 0, 0, 0]
     },
     {
         "activation_vector": [1,.5,.5, 1,.5, 0, 1, 1,.5],
-        "training_vector":   [0, 0, 0, 0, 0, 1, 0, 0, 0]
+        "target_vector":     [0, 0, 0, 0, 0, 1, 0, 0, 0]
     },
 ]
 
@@ -68,14 +68,14 @@ class InputItem(BaseModel):
         ...,
         description="The input activation vector."
     )
-    training_vector: list[float] | None = Field(
+    target_vector: list[float] | None = Field(
         None,
         description="The expected output vector, optional for input items."
     )
 
 
 class TrainingItem(InputItem):
-    training_vector: list[float] = Field(
+    target_vector: list[float] = Field(
         ...,
         description="The expected output vector, required for training items."
     )
@@ -95,18 +95,23 @@ class CreateModelRequest(ModelRequest):
         examples=[[9, 9, 9]],
         description="A list of integers representing the sizes of each layer in the neural network."
     )
-    init_algo: str = Field(
+    weight_algo: str = Field(
         "xavier",
-        examples=["xavier"],
+        examples=["xavier", "he", "gaussian"],
+        description="An initialization algorithm"
+    )
+    bias_algo: str = Field(
+        "random",
+        examples=["random", "zeros"],
         description="An initialization algorithm"
     )
 
 
 class ModelMutationRequest(ModelRequest):
-    activation_algo: str = Field(
-        "sigmoid",
-        examples=["sigmoid"],
-        description="The activation algorithm to apply"
+    activation_algos: list[str] = Field(
+        ...,
+        examples=[["sigmoid"] * 2, ["relu"] * 2, ["tanh"] * 2, ["relu", "softmax"]],
+        description="The activation algorithms to apply"
     )
 
 
@@ -160,7 +165,7 @@ def redirect_to_docs():
 
 @app.post("/model/")
 def create_model(body: CreateModelRequest = Body(...)):
-    model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.init_algo)
+    model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.weight_algo, body.bias_algo)
     model.serialize()
     return {"message": f"Model {body.model_id} created and saved successfully"}
 
@@ -173,16 +178,16 @@ def compute_model_output(body:
                                  "description": f"Example input and training data for case {idx + 1}",
                                  "value": {
                                      "model_id": "test",
-                                     "activation_algo": "sigmoid",
+                                     "activation_algos": ["sigmoid"] * 2,
                                      "input": example
                                  }
                              } for idx, example in enumerate(EXAMPLES)} )):
     model = NeuralNetworkModel.deserialize(body.model_id)
     activation_vector = body.input.activation_vector
-    training_vector = body.input.training_vector
-    activation_algo = body.activation_algo
+    target_vector = body.input.target_vector
+    activation_algos = body.activation_algos
     output_vector, cost, cost_derivative_wrt_weights, cost_derivative_wrt_biases = (
-        model.compute_output(activation_vector, activation_algo, training_vector))
+        model.compute_output(activation_vector, activation_algos, target_vector))
     return {"output_vector": output_vector,
             "cost": cost,
             "cost_derivative_wrt_weights": cost_derivative_wrt_weights,
@@ -196,8 +201,8 @@ async def train_model(body: TrainingRequest = Body(...)):
 
     async def train():
         model.train(
-            [(data.activation_vector, data.training_vector) for data in body.training_data],
-            activation_algo= body.activation_algo,
+            [(data.activation_vector, data.target_vector) for data in body.training_data],
+            activation_algos= body.activation_algos,
             epochs=body.epochs,
             learning_rate=body.learning_rate,
         )
