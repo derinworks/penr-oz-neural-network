@@ -146,8 +146,16 @@ class NeuralNetworkModel:
         """
         activations = [np.array(activation_vector)]
         output_arrays = []
-        for layer_weights, layer_bias, algo in zip(self.weights, self.biases, activation_algos):
-            output_arrays.append(np.dot(activations[-1], np.array(layer_weights)) + np.array(layer_bias))
+        num_layers = len(self.weights)
+        for layer in range(num_layers):
+            layer_weights = self.weights[layer]
+            layer_bias = self.biases[layer]
+            algo = activation_algos[layer]
+            output_array = np.dot(activations[-1], np.array(layer_weights)) + np.array(layer_bias)
+            if algo == "relu" and layer < num_layers - 1:
+                # stabilize output in hidden layers prevent overflow with ReLU activations
+                output_array = func.batch_norm(output_array)
+            output_arrays.append(output_array)
             activations.append(self.activate_with_algo(algo, output_arrays[-1]))
 
         if target_vector is not None:
@@ -161,7 +169,7 @@ class NeuralNetworkModel:
             output_derivative_wrt_activation = self.derivative_with_algo(activation_algos[-1], output_arrays[-1], target_array)
             cost_derivative_wrt_activation = cost_derivative_wrt_output * output_derivative_wrt_activation
             # now stepping backwards in layers (one less than number of activation edges)
-            for layer in range(len(self.weights) - 1, -1, -1):
+            for layer in range(num_layers - 1, -1, -1):
                 # one more activation edge than layers so current edge index = (layer index + 1), previous = current - 1
                 # which means previous edge index = (layer + 1) - 1 = current layer index
                 prev_activation_edge = layer
