@@ -40,6 +40,9 @@ def tanh(x):
     :param x: a NumPy array x
     :return: tanh activation of x
     """
+    # Check for invalid values
+    if np.isnan(x).any() or np.isinf(x).any():
+        raise ValueError("Input contains NaN or Inf values.")
     return np.tanh(x)
 
 def tanh_derivative(x):
@@ -74,6 +77,9 @@ def softmax(x):
     :param x: a NumPy array x
     :return: Softmax probabilities of the input.
     """
+    # Check for invalid values
+    if np.isnan(x).any() or np.isinf(x).any():
+        raise ValueError("Input contains NaN or Inf values.")
     # Shift input values for numerical stability (prevent overflow/underflow)
     shift_x = x - np.max(x)
     # Exponential of shifted values
@@ -94,3 +100,8 @@ def softmax_cross_entropy_gradient(x, y):
     # Calculate the gradient: softmax_probs - y
     return softmax_probs - y
 
+
+def batch_norm(x, epsilon=1e-5):
+    mean = np.mean(x, axis=0)
+    variance = np.var(x, axis=0)
+    return (x - mean) / np.sqrt(variance + epsilon)
