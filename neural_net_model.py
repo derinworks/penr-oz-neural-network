@@ -3,6 +3,7 @@ import logging
 import os
 import numpy as np
 import functions as func
+from adam_optimizer import AdamOptimizer
 import time
 from datetime import datetime as dt
 
@@ -29,12 +30,15 @@ class NeuralNetworkModel:
              * scaling_factors.get(weight_algo, scaling_factors["gaussian"])(i)).tolist()
             for i in range(len(layer_sizes) - 1)
         ]
+        self.weight_optimizer = AdamOptimizer()
 
         self.biases = [
             (np.zeros(layer_size) if bias_algo == "zeros"
              else np.random.randn(layer_size)).tolist()
             for layer_size in layer_sizes[1:]
         ]
+        self.bias_optimizer = AdamOptimizer()
+
         self.progress = []
 
         # Training data buffer
@@ -99,7 +103,9 @@ class NeuralNetworkModel:
         full_path = os.path.join("models", filepath)
         model_data = {
             "weights": self.weights,
+            "weight_optimizer_state": self.weight_optimizer.state,
             "biases": self.biases,
+            "bias_optimizer_state": self.bias_optimizer.state,
             "progress": self.progress,
             "training_buffer_size": self.training_buffer_size,
             "training_data_buffer": self.training_data_buffer
@@ -121,7 +127,9 @@ class NeuralNetworkModel:
         layer_sizes = [len(model_data["weights"][0])] + [len(w[0]) for w in model_data["weights"]]
         model = cls(model_id, layer_sizes)
         model.weights = model_data["weights"]
+        model.weight_optimizer.state = model_data["weight_optimizer_state"]
         model.biases = model_data["biases"]
+        model.bias_optimizer.state = model_data["bias_optimizer_state"]
         model.progress = model_data["progress"]
         model.training_buffer_size = model_data["training_buffer_size"]
         model.training_data_buffer = model_data["training_data_buffer"]
@@ -203,19 +211,20 @@ class NeuralNetworkModel:
     def _train_step(self, avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate):
         """
         Update the weights and biases of the neural network using the averaged cost derivatives.
-
-        :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives with respect to weights.
-        :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives with respect to biases.
+        :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives NumPy arrays with respect to weights.
+        :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives NumPy arrays with respect to biases.
         :param learning_rate: Learning rate for gradient descent.
         """
+        # Optimize weight gradients
+        optimized_weight_step_arrays = self.weight_optimizer.step(avg_cost_derivatives_wrt_weights, learning_rate)
         # Update weights
         for layer in range(len(self.weights)):
-            self.weights[layer] = (np.array(self.weights[layer]) -
-                                   learning_rate * np.array(avg_cost_derivatives_wrt_weights[layer])).tolist()
+            self.weights[layer] = (np.array(self.weights[layer]) - optimized_weight_step_arrays[layer]).tolist()
+        # Optimize bias gradients
+        optimized_bias_step_arrays = self.bias_optimizer.step(avg_cost_derivatives_wrt_biases, learning_rate)
         # Update biases
         for layer in range(len(self.biases)):
-            self.biases[layer] = (np.array(self.biases[layer]) -
-                                  learning_rate * np.array(avg_cost_derivatives_wrt_biases[layer])).tolist()
+            self.biases[layer] = (np.array(self.biases[layer]) - optimized_bias_step_arrays[layer]).tolist()
 
     def train(self, training_data, activation_algos, epochs=100, learning_rate=0.01, decay_rate=0.9):
         """
