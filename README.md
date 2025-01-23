@@ -1,18 +1,21 @@
 # penr-oz-neural-network
 
-A neural network implementation with microservice capabilities built using FastAPI. This repository demonstrates key concepts in neural networks, including forward propagation, backpropagation, and gradient descent, with support for various activation functions and weight initialization techniques.
+A neural network implementation with microservice capabilities built using FastAPI. This repository demonstrates key concepts in neural networks, including forward propagation, backpropagation, and gradient descent, with support for various activation functions, initialization techniques and numerical stability.
 
 ## Features
-- Multiple weight initialization algorithms (Xavier, He, Gaussian)
-- Supports activation functions: Sigmoid, ReLU, Tanh
+- Layer-wise design for flexible neural network architecture.
+- Numerical stability mechanisms
+- Customizable training parameters.
+  - Multiple weight initialization algorithms: Xavier, He, Gaussian
+  - Multiple bias initialization algorithms: Random, Zeros
+  - Supports activation functions per layer: Sigmoid, ReLU, Tanh, SoftMax
 - Microservice API with endpoints for:
   - Creating models
   - Computing outputs
-  - Training models asynchronously
-- Numerical stability mechanisms
+  - Training models asynchronously with buffering
+  - Checking on training progress
 
 ## Examples: Calculus in Neural Networks
-
 Below are examples demonstrating how calculus is used in the implementation:
 
 ### Forward Propagation
@@ -53,6 +56,33 @@ The gradients are computed as:
    ```
    ∂J/∂b^(L) = ∂J/∂a^(L)
    ```
+### Adam Optimizer for efficient convergence
+The Adam optimizer is an adaptive learning rate optimization algorithm that combines momentum and RMSProp. 
+The updates for weights and biases are computed as follows:
+
+1. Compute the moving averages of gradients and squared gradients:
+   ```
+   m_t = β1 ⋅ m_(t-1) + (1 - β1) ⋅ g_t
+   v_t = β2 ⋅ v_(t-1) + (1 - β2) ⋅ g_t^2
+   ```
+   where:
+   - `g_t` is the gradient at timestep `t`.
+   - `m_t` and `v_t` are the first and second moment estimates, respectively.
+   - `β1` and `β2` are decay rates for the moments.
+
+2. Correct the bias for the moments:
+   ```
+   m_t' = m_t / (1 - β1^t)
+   v_t' = v_t / (1 - β2^t)
+   ```
+
+3. Update weights and biases:
+   ```
+   Θ_t = Θ_(t-1) - α ⋅ (m_t' / (√v_t' + ε))
+   ```
+   where `α` is the learning rate and `ε` is a small constant to prevent division by zero.
+
+Adam ensures efficient and stable convergence by dynamically adjusting learning rates for each parameter.
 
 ### Numerical Stability in Sigmoid Function
 To prevent overflow in the sigmoid function:
@@ -63,7 +93,18 @@ To prevent overflow in the sigmoid function:
 
 Values of `z` are clipped to the range `[-500, 500]` to avoid numerical instability.
 
-# Penr-Oz Neural Network
+### Softmax Cross Entropy Gradient
+When using the softmax function for multi-class classification, the gradient of the cost function with respect to logits `z` is given by:
+
+```
+∂J/∂z_i = softmax(z)_i - y_i
+```
+
+Where:
+- `softmax(z)_i` is the softmax probability for class `i`.
+- `y_i` is the true label for class `i` (one-hot encoded).
+
+This gradient is efficient to compute and avoids numerical instability when combined with the log-softmax trick.
 
 ## Quickstart Guide
 
