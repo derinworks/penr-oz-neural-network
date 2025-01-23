@@ -211,21 +211,20 @@ class NeuralNetworkModel:
     def _train_step(self, avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate):
         """
         Update the weights and biases of the neural network using the averaged cost derivatives.
-
-        :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives with respect to weights.
-        :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives with respect to biases.
+        :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives NumPy arrays with respect to weights.
+        :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives NumPy arrays with respect to biases.
         :param learning_rate: Learning rate for gradient descent.
         """
         # Optimize weight gradients
-        optimized_weight_steps = self.weight_optimizer.step(avg_cost_derivatives_wrt_weights, learning_rate)
+        optimized_weight_step_arrays = self.weight_optimizer.step(avg_cost_derivatives_wrt_weights, learning_rate)
         # Update weights
         for layer in range(len(self.weights)):
-            self.weights[layer] = (np.array(self.weights[layer]) - np.array(optimized_weight_steps[layer])).tolist()
+            self.weights[layer] = (np.array(self.weights[layer]) - optimized_weight_step_arrays[layer]).tolist()
         # Optimize bias gradients
-        optimized_bias_steps = self.bias_optimizer.step(avg_cost_derivatives_wrt_biases, learning_rate)
+        optimized_bias_step_arrays = self.bias_optimizer.step(avg_cost_derivatives_wrt_biases, learning_rate)
         # Update biases
         for layer in range(len(self.biases)):
-            self.biases[layer] = (np.array(self.biases[layer]) - np.array(optimized_bias_steps[layer])).tolist()
+            self.biases[layer] = (np.array(self.biases[layer]) - optimized_bias_step_arrays[layer]).tolist()
 
     def train(self, training_data, activation_algos, epochs=100, learning_rate=0.01, decay_rate=0.9):
         """

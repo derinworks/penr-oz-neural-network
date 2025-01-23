@@ -13,7 +13,8 @@ class AdamOptimizer:
     def step(self, gradient_arrays, learning_rate=0.001):
         """
         Perform a single Adam optimization step.
-        :param: gradients: List of Gradient NumPy arrays.
+        :param gradient_arrays: List of Gradient NumPy arrays.
+        :param learning_rate: Learning rate.
         :return: List of Step NumPy arrays.
         """
         # Unpack state
