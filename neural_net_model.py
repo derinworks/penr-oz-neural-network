@@ -44,8 +44,9 @@ class NeuralNetworkModel:
         # Training data buffer
         self.training_data_buffer = []
 
-        # Calculate training buffer size based on total parameters
+        # Calculate training buffer and sample size based on total parameters
         self.training_buffer_size = self._calculate_buffer_size(layer_sizes)
+        self.training_sample_size = int(self.training_buffer_size * 0.1) # sample 10% of buffer
 
     @staticmethod
     def _calculate_buffer_size(layer_sizes):
@@ -56,7 +57,7 @@ class NeuralNetworkModel:
             layer_sizes[i] * layer_sizes[i + 1] + layer_sizes[i + 1]
             for i in range(len(layer_sizes) - 1)
         )
-        return int(0.1 * total_params)  # Buffer size is 10% of total parameters
+        return total_params  # Buffer size is equal to total parameters
 
     @classmethod
     def activate_with_algo(cls, algo, output_array):
@@ -107,8 +108,7 @@ class NeuralNetworkModel:
             "biases": self.biases,
             "bias_optimizer_state": self.bias_optimizer.state,
             "progress": self.progress,
-            "training_buffer_size": self.training_buffer_size,
-            "training_data_buffer": self.training_data_buffer
+            "training_data_buffer": self.training_data_buffer,
         }
         with open(full_path, 'w', encoding='utf-8') as f:
             json.dump(model_data, f, indent=4)
@@ -131,7 +131,6 @@ class NeuralNetworkModel:
         model.biases = model_data["biases"]
         model.bias_optimizer.state = model_data["bias_optimizer_state"]
         model.progress = model_data["progress"]
-        model.training_buffer_size = model_data["training_buffer_size"]
         model.training_data_buffer = model_data["training_data_buffer"]
         return model
 
@@ -255,11 +254,12 @@ class NeuralNetworkModel:
         last_serialized = time.time()
         for epoch in range(epochs):
             np.random.shuffle(training_data)
+            training_data_sample = training_data[:self.training_sample_size]
             avg_cost_derivatives_wrt_weights = [np.zeros_like(np.array(w)) for w in self.weights]
             avg_cost_derivatives_wrt_biases = [np.zeros_like(np.array(b)) for b in self.biases]
             total_cost = 0
 
-            for activation_vector, target_vector in training_data:
+            for activation_vector, target_vector in training_data_sample:
                 _, cost, cost_derivatives_wrt_weights, cost_derivatives_wrt_biases = self.compute_output(
                     activation_vector, activation_algos, target_vector
                 )
@@ -269,8 +269,8 @@ class NeuralNetworkModel:
                     avg_cost_derivatives_wrt_biases[layer] += np.array(cost_derivatives_wrt_biases[layer])
 
             # Average the derivatives
-            avg_cost_derivatives_wrt_weights = [w / len(training_data) for w in avg_cost_derivatives_wrt_weights]
-            avg_cost_derivatives_wrt_biases = [b / len(training_data) for b in avg_cost_derivatives_wrt_biases]
+            avg_cost_derivatives_wrt_weights = [w / len(training_data_sample) for w in avg_cost_derivatives_wrt_weights]
+            avg_cost_derivatives_wrt_biases = [b / len(training_data_sample) for b in avg_cost_derivatives_wrt_biases]
 
             # Update weights and biases
             current_learning_rate = learning_rate * (decay_rate ** epoch)
@@ -280,7 +280,7 @@ class NeuralNetworkModel:
             self.progress.append({
                 "dt": dt.now().isoformat(),
                 "epoch": epoch + 1,
-                "cost": total_cost / len(training_data)
+                "cost": total_cost / len(training_data_sample)
             })
             last_progress = self.progress[-1]
             print(f"Model {self.model_id}: {last_progress["dt"]} - Epoch {last_progress["epoch"]}, Cost: {last_progress["cost"]:.4f} ")
