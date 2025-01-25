@@ -28,12 +28,13 @@ class TestNeuralNetModel(unittest.TestCase):
             self.assertEqual(len(biases), layer_sizes[i + 1])  # Bias vector length matches next layer size
 
         # Check the training buffer size
-        total_params = sum(
+        expected_buffer_size = sum(
             layer_sizes[i] * layer_sizes[i + 1] + layer_sizes[i + 1]
             for i in range(len(layer_sizes) - 1)
         )
-        expected_buffer_size = int(0.1 * total_params)
+        expected_sample_size = int(expected_buffer_size * 0.1)
         self.assertEqual(model.training_buffer_size, expected_buffer_size)
+        self.assertEqual(model.training_sample_size, expected_sample_size)
 
     @parameterized.expand([
         ([9, 9, 9], ["sigmoid"] * 2,),
