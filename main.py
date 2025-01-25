@@ -138,6 +138,21 @@ class TrainingRequest(ModelMutationRequest):
         examples=[0.01],
         description="The learning rate for training."
     )
+    decay_rate: float = Field(
+        0.9,
+        examples=[0.9],
+        description="The decay rate of learning rate during training."
+    )
+    dropout_rate: float = Field(
+        0.2,
+        examples=[0.2],
+        description="The drop out rate of activated neurons to improve generalization"
+    )
+    l2_lambda: float = Field(
+        0.001,
+        examples=[0.001],
+        description="The L2 Lambda penalty reducing weight magnitude during backpropagation"
+    )
 
 
 class ModelIdQuery(Query):

@@ -208,25 +208,29 @@ class NeuralNetworkModel:
 
         return activations[-1].tolist(), cost, cost_derivatives_wrt_weights, cost_derivatives_wrt_biases
 
-    def _train_step(self, avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate):
+    def _train_step(self, avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate, l2_lambda):
         """
         Update the weights and biases of the neural network using the averaged cost derivatives.
         :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives NumPy arrays with respect to weights.
         :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives NumPy arrays with respect to biases.
         :param learning_rate: Learning rate for gradient descent.
+        :param l2_lambda: L2 regularization strength.
         """
         # Optimize weight gradients
         optimized_weight_step_arrays = self.weight_optimizer.step(avg_cost_derivatives_wrt_weights, learning_rate)
         # Update weights
         for layer in range(len(self.weights)):
-            self.weights[layer] = (np.array(self.weights[layer]) - optimized_weight_step_arrays[layer]).tolist()
+            layer_weights_array = np.array(self.weights[layer])
+            l2_penalty_array = l2_lambda * layer_weights_array # with L2 regularization
+            self.weights[layer] = (layer_weights_array - optimized_weight_step_arrays[layer] - l2_penalty_array).tolist()
         # Optimize bias gradients
         optimized_bias_step_arrays = self.bias_optimizer.step(avg_cost_derivatives_wrt_biases, learning_rate)
         # Update biases
         for layer in range(len(self.biases)):
             self.biases[layer] = (np.array(self.biases[layer]) - optimized_bias_step_arrays[layer]).tolist()
 
-    def train(self, training_data, activation_algos, epochs=100, learning_rate=0.01, decay_rate=0.9, dropout_rate=0.2):
+    def train(self, training_data, activation_algos,
+              epochs=100, learning_rate=0.01, decay_rate=0.9, dropout_rate=0.2, l2_lambda=0.001):
         """
         Train the neural network using the provided training data.
 
@@ -236,6 +240,7 @@ class NeuralNetworkModel:
         :param learning_rate: Learning rate for gradient descent.
         :param decay_rate: Decay rate of learning rate for finer gradient descent
         :param dropout_rate: Fraction of neurons to drop during training for hidden layers
+        :param l2_lambda: L2 regularization strength
         """
         # Combine incoming training data with buffered data
         self.training_data_buffer.extend(training_data)
@@ -276,7 +281,8 @@ class NeuralNetworkModel:
 
             # Update weights and biases
             current_learning_rate = learning_rate * (decay_rate ** epoch)
-            self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, current_learning_rate)
+            self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases,
+                             current_learning_rate, l2_lambda)
 
             # Record progress
             self.progress.append({
