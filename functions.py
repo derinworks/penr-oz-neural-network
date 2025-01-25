@@ -4,7 +4,7 @@ def sigmoid(x):
     """
     Takes a NumPy array x and returns an array of the same shape, avoiding overflow errors.
     :param x: a NumPy array x
-    :return: Activation function: Sigmoid
+    :return: Sigmoid activation of x
     """
     x = np.clip(x, -500, 500)  # Avoid overflow
     return 1 / (1 + np.exp(-x))
@@ -13,7 +13,7 @@ def sigmoid_derivative(x):
     """
     Takes a NumPy array x (raw pre-activation) and returns the derivative of sigmoid.
     :param x: a NumPy array x (pre-activated)
-    :return: Derivative of sigmoid function
+    :return: Derivative of sigmoid activation
     """
     sig = sigmoid(x)  # Ensure sigmoid is applied if x is pre-activation
     return sig * (1 - sig)
@@ -102,6 +102,24 @@ def softmax_cross_entropy_gradient(x, y):
 
 
 def batch_norm(x, epsilon=1e-5):
+    """
+    Applies batch normalization to given NumPy array
+    :param x: a NumPy array
+    :param epsilon: normalization option
+    :return:
+    """
     mean = np.mean(x, axis=0)
     variance = np.var(x, axis=0)
     return (x - mean) / np.sqrt(variance + epsilon)
+
+def apply_dropout(x, dropout_rate):
+    """
+    Applies dropout to the given vector.
+    :param x: a NumPy array
+    :param dropout_rate: The fraction of vector entries to drop (e.g., 0.2 for 20%).
+    :return: a NumPy array with dropout applied.
+    """
+    if dropout_rate <= 0.0 or dropout_rate >= 1.0:
+        return x  # No dropout if rate is invalid
+    dropout_mask = np.random.rand(*x.shape) > dropout_rate
+    return x * dropout_mask / (1.0 - dropout_rate)
