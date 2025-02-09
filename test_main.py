@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
+from gradients import Gradients
 from main import app
 
 
@@ -55,7 +56,7 @@ def test_create_model_endpoint(mock_new_model):
 
 
 def test_output_endpoint(mock_deserialized_model):
-    mock_deserialized_model.compute_output.return_value = [0, 1, 0], None, None, None
+    mock_deserialized_model.compute_output.return_value = [0, 1, 0], None, Gradients()
 
     payload = {
         "model_id": "test",
@@ -70,8 +71,8 @@ def test_output_endpoint(mock_deserialized_model):
     assert response.json() == {
         "output_vector": [0, 1, 0],
         "cost": None,
-        "cost_derivative_wrt_weights": None,
-        "cost_derivative_wrt_biases": None
+        "cost_derivative_wrt_weights": [],
+        "cost_derivative_wrt_biases": []
     }
 
     assert response.status_code == 200

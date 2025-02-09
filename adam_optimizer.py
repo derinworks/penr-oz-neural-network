@@ -10,10 +10,10 @@ class AdamOptimizer:
             "moments_list": [],
         }
 
-    def step(self, gradient_arrays, learning_rate=0.001):
+    def step(self, gradients, learning_rate=0.001):
         """
         Perform a single Adam optimization step.
-        :param gradient_arrays: List of Gradient NumPy arrays.
+        :param gradients: List of Gradient NumPy arrays.
         :param learning_rate: Learning rate.
         :return: List of Step NumPy arrays.
         """
@@ -21,34 +21,34 @@ class AdamOptimizer:
         t = self.state["time_step"]
         # Initialize moments at time step 0 to match gradient shape
         if t == 0:
-            moments_arrays = [{"m": zeros_like_gradient, "v": zeros_like_gradient}
-                              for zeros_like_gradient in map(np.zeros_like, gradient_arrays)]
-        else: # convert moments to arrays
-            moments_arrays = [{key: np.array(val) for key, val in moments.items()}
+            moments = [{"m": zeros_like_gradient, "v": zeros_like_gradient}
+                              for zeros_like_gradient in map(np.zeros_like, gradients)]
+        else: # retrieve moments stored in current state
+            moments = [{key: np.array(val) for key, val in moments.items()}
                               for moments in self.state["moments_list"]]
         # Increment time step
         t += 1
         # Compute steps
-        step_arrays = []
-        for layer in range(len(gradient_arrays)):
-            layer_gradient_array = gradient_arrays[layer]
+        steps = []
+        for layer in range(len(gradients)):
+            layer_gradient = gradients[layer]
             # Unpack layer moments
-            m, v = moments_arrays[layer].values()
+            m, v = moments[layer].values()
             # Update biased first moment estimate
-            m = self.beta1 * m + (1 - self.beta1) * layer_gradient_array
+            m = self.beta1 * m + (1 - self.beta1) * layer_gradient
             # Update biased second moment estimate
-            v = self.beta2 * v + (1 - self.beta2) * (layer_gradient_array ** 2)
+            v = self.beta2 * v + (1 - self.beta2) * (layer_gradient ** 2)
             # Repack moments
-            moments_arrays[layer].update({"m": m, "v": v})
+            moments[layer].update({"m": m, "v": v})
             # Compute bias-corrected moment estimates
             m_hat = m / (1 - self.beta1 ** t)
             v_hat = v / (1 - self.beta2 ** t)
             # Compute the step array
-            step_array = learning_rate * m_hat / (np.sqrt(v_hat) + self.epsilon)
+            step = learning_rate * m_hat / (np.sqrt(v_hat) + self.epsilon)
             # Add to steps
-            step_arrays.append(step_array)
+            steps.append(step)
         # Repack state
-        self.state.update({"time_step": t, "moments_list": [{key: val.tolist() for key, val in moment_arrays.items()}
-                                                            for moment_arrays in moments_arrays]})
+        self.state.update({"time_step": t, "moments_list": [{key: val.tolist() for key, val in moment.items()}
+                                                            for moment in moments]})
         # Return steps list
-        return step_arrays
+        return steps

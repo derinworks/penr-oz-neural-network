@@ -4,6 +4,7 @@ import os
 import numpy as np
 import functions as func
 from adam_optimizer import AdamOptimizer
+from gradients import Gradients
 import time
 from datetime import datetime as dt
 
@@ -25,15 +26,15 @@ class NeuralNetworkModel:
             "gaussian": lambda i: 1
         }
         self.weights = [
-            (np.random.randn(layer_sizes[i], layer_sizes[i + 1])
-             * scaling_factors.get(weight_algo, scaling_factors["gaussian"])(i)).tolist()
+            np.random.randn(layer_sizes[i], layer_sizes[i + 1])
+             * scaling_factors.get(weight_algo, scaling_factors["gaussian"])(i)
             for i in range(len(layer_sizes) - 1)
         ]
         self.weight_optimizer = AdamOptimizer()
 
         self.biases = [
-            (np.zeros(layer_size) if bias_algo == "zeros"
-             else np.random.randn(layer_size)).tolist()
+            np.zeros(layer_size) if bias_algo == "zeros"
+            else np.random.randn(layer_size)
             for layer_size in layer_sizes[1:]
         ]
         self.bias_optimizer = AdamOptimizer()
@@ -59,56 +60,47 @@ class NeuralNetworkModel:
         return total_params  # Buffer size is equal to total parameters
 
     @classmethod
-    def activate_with_algo(cls, algo, pre_activation_array):
+    def activate_with_algo(cls, algo, pre_activation):
         """
         Apply activation function based on the given algorithm.
         :param algo: The activation algorithm ("sigmoid", "relu", "tanh", softmax).
-        :param pre_activation_array: Pre-activated NumPy array.
+        :param pre_activation: Pre-activated NumPy array.
         :return: Activated NumPy array.
         """
         if algo == "sigmoid":
-            return func.sigmoid(pre_activation_array)
+            return func.sigmoid(pre_activation)
         elif algo == "relu":
-            return func.relu(pre_activation_array)
+            return func.relu(pre_activation)
         elif algo == "tanh":
-            return func.tanh(pre_activation_array)
+            return func.tanh(pre_activation)
         elif algo == "softmax":
-            return func.softmax(pre_activation_array)
+            return func.softmax(pre_activation)
         else:
             raise ValueError(f"Unsupported activation algorithm: {algo}")
 
-    @classmethod
-    def derivative_with_algo(cls, algo, pre_activation_array, target_array=None):
-        """
-        Apply derivative of activation function based on the given algorithm.
-        :param algo: The activation algorithm ("sigmoid", "relu", "tanh", "softmax").
-        :param pre_activation_array: Pre-activation NumPy array
-        :param target_array: Target NumPy array (for last layer only)
-        :return: Derivative of the activation of output NumPy array.
-        """
-        if algo == "sigmoid":
-            return func.sigmoid_derivative(pre_activation_array)
-        elif algo == "relu":
-            return func.relu_derivative(pre_activation_array)
-        elif algo == "tanh":
-            return func.tanh_derivative(pre_activation_array)
-        elif algo == "softmax" and target_array is not None:
-            return func.softmax_cross_entropy_gradient(pre_activation_array, target_array)
-        else:
-            raise ValueError(f"Unsupported derivative of activation algorithm: {algo}")
+    def get_model_data(self):
+        return {
+            "weights": [w.tolist() for w in self.weights],
+            "weight_optimizer_state": self.weight_optimizer.state,
+            "biases": [b.tolist() for b in self.biases],
+            "bias_optimizer_state": self.bias_optimizer.state,
+            "progress": self.progress,
+            "training_data_buffer": self.training_data_buffer,
+        }
+
+    def set_model_data(self, model_data):
+        self.weights = [np.array(w) for w in model_data["weights"]]
+        self.weight_optimizer.state = model_data["weight_optimizer_state"]
+        self.biases = [np.array(b) for b in model_data["biases"]]
+        self.bias_optimizer.state = model_data["bias_optimizer_state"]
+        self.progress = model_data["progress"]
+        self.training_data_buffer = model_data["training_data_buffer"]
 
     def serialize(self):
         filepath = f"model_{self.model_id}.json"
         os.makedirs("models", exist_ok=True)
         full_path = os.path.join("models", filepath)
-        model_data = {
-            "weights": self.weights,
-            "weight_optimizer_state": self.weight_optimizer.state,
-            "biases": self.biases,
-            "bias_optimizer_state": self.bias_optimizer.state,
-            "progress": self.progress,
-            "training_data_buffer": self.training_data_buffer,
-        }
+        model_data = self.get_model_data()
         with open(full_path, 'w', encoding='utf-8') as f:
             json.dump(model_data, f, indent=4)
         log.info(f"Model saved successfully: {full_path}")
@@ -125,12 +117,7 @@ class NeuralNetworkModel:
             raise KeyError(f"Model {model_id} not created yet.")
         layer_sizes = [len(model_data["weights"][0])] + [len(w[0]) for w in model_data["weights"]]
         model = cls(model_id, layer_sizes)
-        model.weights = model_data["weights"]
-        model.weight_optimizer.state = model_data["weight_optimizer_state"]
-        model.biases = model_data["biases"]
-        model.bias_optimizer.state = model_data["bias_optimizer_state"]
-        model.progress = model_data["progress"]
-        model.training_data_buffer = model_data["training_data_buffer"]
+        model.set_model_data(model_data)
         return model
 
     @classmethod
@@ -142,100 +129,68 @@ class NeuralNetworkModel:
         except FileNotFoundError as e:
             log.warning(f"Failed to delete: {str(e)}")
 
-    def compute_output(self, activation_vector, activation_algos, target_vector=None, dropout_rate=0.0):
+    def compute_output(self, activation_vector, algos, target_vector=None, dropout_rate=0.0):
         """
         Compute activated output and optionally also cost compared to the provided training data.
         :param activation_vector: Activation vector
-        :param activation_algos: Algorithms used to activate
+        :param algos: Algorithms used to activate
         :param target_vector: Target vector (optional)
         :param dropout_rate: Fraction of neurons to drop during training for hidden layers (optional)
         """
         activations = [np.array(activation_vector)]
-        pre_activation_arrays = []
+        pre_activations = []
         num_layers = len(self.weights)
         for layer in range(num_layers):
-            layer_weights = self.weights[layer]
-            layer_bias = self.biases[layer]
-            algo = activation_algos[layer]
-            pre_activation_array = np.dot(activations[-1], np.array(layer_weights)) + np.array(layer_bias)
+            algo = algos[layer]
+            pre_activation = np.dot(activations[-1], self.weights[layer]) + self.biases[layer]
             if algo == "relu" and layer < num_layers - 1:
                 # stabilize output in hidden layers prevent overflow with ReLU activations
-                pre_activation_array = func.batch_norm(pre_activation_array)
-            pre_activation_arrays.append(pre_activation_array)
-            activation_array = self.activate_with_algo(algo, pre_activation_arrays[-1])
+                pre_activation = func.batch_norm(pre_activation)
+            pre_activations.append(pre_activation)
+            activation = self.activate_with_algo(algo, pre_activations[-1])
             if layer < num_layers - 1:  # Hidden layers only
                 # Apply dropout only to hidden layers
-                activation_array = func.apply_dropout(activation_array, dropout_rate)
-            activations.append(activation_array)
+                activation = func.apply_dropout(activation, dropout_rate)
+            activations.append(activation)
 
+        cost = None
+        gradients = Gradients()
         if target_vector is not None:
-            target_array = np.array(target_vector)
-            cost = func.mean_squared_error(activations[-1], target_array)
-            # collect cost derivatives
-            cost_derivatives_wrt_weights = []
-            cost_derivatives_wrt_biases = []
-            # start derivatives at output edge with training array
-            cost_derivative_wrt_output = func.mean_squared_error_derivative(activations[-1], target_array)
-            pre_activation_derivative_wrt_activation = self.derivative_with_algo(activation_algos[-1], pre_activation_arrays[-1], target_array)
-            cost_derivative_wrt_activation = cost_derivative_wrt_output * pre_activation_derivative_wrt_activation
-            # now stepping backwards in layers (one less than number of activation edges)
-            for layer in reversed(range(num_layers)):
-                # one more activation edge than layers so current edge index = (layer index + 1), previous = current - 1
-                # which means previous edge index = (layer + 1) - 1 = current layer index
-                prev_activation_edge = layer
-                # with respect to weights
-                prev_activations = activations[prev_activation_edge] # previous edge of current layer
-                activation_derivative_wrt_weights = prev_activations # cost derivative is the previous activations
-                cost_derivative_wrt_weights = np.outer(activation_derivative_wrt_weights, cost_derivative_wrt_activation)
-                cost_derivatives_wrt_weights.insert(0, cost_derivative_wrt_weights.tolist())
-                # with respect to biases
-                # cost derivative is same as current edge derivative of activations with respect to weights
-                cost_derivative_wrt_biases = cost_derivative_wrt_activation
-                cost_derivatives_wrt_biases.insert(0, cost_derivative_wrt_biases.tolist())
-                # Backpropagation of cost error to previous layers except last one
-                if layer > 0:
-                    prev_layer = layer - 1
-                    prev_pre_activation_array = pre_activation_arrays[prev_layer]
-                    prev_algo = activation_algos[prev_layer]
-                    prev_pre_activation_derivative_wrt_activation = self.derivative_with_algo(prev_algo, prev_pre_activation_array)
-                    layer_weights_array_transposed = np.array(self.weights[layer]).T
-                    prev_layer_weighted_error = np.dot(cost_derivative_wrt_activation, layer_weights_array_transposed)
-                    cost_derivative_wrt_activation = prev_layer_weighted_error * prev_pre_activation_derivative_wrt_activation
-        else:
-            cost = None
-            cost_derivatives_wrt_weights = None
-            cost_derivatives_wrt_biases = None
+            target = np.array(target_vector)
+            cost = func.mean_squared_error(activations[-1], target)
+            gradients.compute(self.weights, algos, activations, pre_activations, target)
 
-        return activations[-1].tolist(), cost, cost_derivatives_wrt_weights, cost_derivatives_wrt_biases
+        return activations[-1].tolist(), cost, gradients
 
-    def _train_step(self, avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases, learning_rate, l2_lambda):
+    def _train_step(self, avg_gradients, learning_rate, l2_lambda):
         """
         Update the weights and biases of the neural network using the averaged cost derivatives.
-        :param avg_cost_derivatives_wrt_weights: List of averaged cost derivatives NumPy arrays with respect to weights.
-        :param avg_cost_derivatives_wrt_biases: List of averaged cost derivatives NumPy arrays with respect to biases.
+        :param avg_gradients: Averaged gradients holding lists of NumPy arrays for weights and biases
         :param learning_rate: Learning rate for gradient descent.
         :param l2_lambda: L2 regularization strength.
         """
         # Optimize weight gradients
-        optimized_weight_step_arrays = self.weight_optimizer.step(avg_cost_derivatives_wrt_weights, learning_rate)
-        # Update weights
+        optimized_weight_steps = self.weight_optimizer.step(avg_gradients.cost_wrt_weights, learning_rate)
+        # Update weights by optimized gradients
         for layer in range(len(self.weights)):
-            layer_weights_array = np.array(self.weights[layer])
-            l2_penalty_array = l2_lambda * layer_weights_array # with L2 regularization
-            self.weights[layer] = (layer_weights_array - optimized_weight_step_arrays[layer] - l2_penalty_array).tolist()
+            self.weights[layer] -= optimized_weight_steps[layer]
+        # Update weights with L2 regularization
+        for layer in range(len(self.weights)):
+            l2_penalties = l2_lambda * self.weights[layer]
+            self.weights[layer] -= l2_penalties
         # Optimize bias gradients
-        optimized_bias_step_arrays = self.bias_optimizer.step(avg_cost_derivatives_wrt_biases, learning_rate)
+        optimized_bias_steps = self.bias_optimizer.step(avg_gradients.cost_wrt_biases, learning_rate)
         # Update biases
         for layer in range(len(self.biases)):
-            self.biases[layer] = (np.array(self.biases[layer]) - optimized_bias_step_arrays[layer]).tolist()
+            self.biases[layer] -= optimized_bias_steps[layer]
 
-    def train(self, training_data, activation_algos,
-              epochs=100, learning_rate=0.01, decay_rate=0.9, dropout_rate=0.2, l2_lambda=0.001):
+    def train(self, training_data, algos, epochs=100, learning_rate=0.01, decay_rate=0.9, dropout_rate=0.2,
+              l2_lambda=0.001):
         """
         Train the neural network using the provided training data.
 
         :param training_data: List of tuples [(activation_vector, target_vector), ...].
-        :param activation_algos: Algorithms used to activate
+        :param algos: Algorithms used to activate
         :param epochs: Number of training iterations.
         :param learning_rate: Learning rate for gradient descent.
         :param decay_rate: Decay rate of learning rate for finer gradient descent
@@ -262,27 +217,20 @@ class NeuralNetworkModel:
         for epoch in range(epochs):
             np.random.shuffle(training_data)
             training_data_sample = training_data[:self.training_sample_size]
-            avg_cost_derivatives_wrt_weights = [np.zeros_like(np.array(w)) for w in self.weights]
-            avg_cost_derivatives_wrt_biases = [np.zeros_like(np.array(b)) for b in self.biases]
+
+            # Calculate total cost and average gradients
+            avg_gradients = Gradients(self.weights, self.biases)
             total_cost = 0
-
             for activation_vector, target_vector in training_data_sample:
-                _, cost, cost_derivatives_wrt_weights, cost_derivatives_wrt_biases = self.compute_output(
-                    activation_vector, activation_algos, target_vector, dropout_rate
-                )
+                _, cost, gradients = self.compute_output(activation_vector, algos, target_vector, dropout_rate)
                 total_cost += cost
-                for layer in range(len(self.weights)):
-                    avg_cost_derivatives_wrt_weights[layer] += np.array(cost_derivatives_wrt_weights[layer])
-                    avg_cost_derivatives_wrt_biases[layer] += np.array(cost_derivatives_wrt_biases[layer])
-
-            # Average the derivatives
-            avg_cost_derivatives_wrt_weights = [w / len(training_data_sample) for w in avg_cost_derivatives_wrt_weights]
-            avg_cost_derivatives_wrt_biases = [b / len(training_data_sample) for b in avg_cost_derivatives_wrt_biases]
+                avg_gradients += gradients # sum up gradients
+            # take average of by size of sample
+            avg_gradients.divide_by(len(training_data_sample))
 
             # Update weights and biases
             current_learning_rate = learning_rate * (decay_rate ** epoch)
-            self._train_step(avg_cost_derivatives_wrt_weights, avg_cost_derivatives_wrt_biases,
-                             current_learning_rate, l2_lambda)
+            self._train_step(avg_gradients, current_learning_rate, l2_lambda)
 
             # Record progress
             self.progress.append({
@@ -291,7 +239,8 @@ class NeuralNetworkModel:
                 "cost": total_cost / len(training_data_sample)
             })
             last_progress = self.progress[-1]
-            print(f"Model {self.model_id}: {last_progress["dt"]} - Epoch {last_progress["epoch"]}, Cost: {last_progress["cost"]:.4f} ")
+            print(f"Model {self.model_id}: {last_progress["dt"]} - Epoch {last_progress["epoch"]}, "
+                  f"Cost: {last_progress["cost"]:.4f} ")
 
             # Serialize model after 10 secs while training
             if time.time() - last_serialized >= 10:
