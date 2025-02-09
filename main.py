@@ -201,12 +201,11 @@ def compute_model_output(body:
     activation_vector = body.input.activation_vector
     target_vector = body.input.target_vector
     activation_algos = body.activation_algos
-    output_vector, cost, cost_derivative_wrt_weights, cost_derivative_wrt_biases = (
-        model.compute_output(activation_vector, activation_algos, target_vector))
+    output_vector, cost, gradients = model.compute_output(activation_vector, activation_algos, target_vector)
     return {"output_vector": output_vector,
             "cost": cost,
-            "cost_derivative_wrt_weights": cost_derivative_wrt_weights,
-            "cost_derivative_wrt_biases": cost_derivative_wrt_biases,
+            "cost_derivative_wrt_weights": [gw.tolist() for gw in gradients.cost_wrt_weights],
+            "cost_derivative_wrt_biases": [gb.tolist() for gb in gradients.cost_wrt_biases],
             }
 
 
@@ -217,7 +216,7 @@ async def train_model(body: TrainingRequest = Body(...)):
     async def train():
         model.train(
             [(data.activation_vector, data.target_vector) for data in body.training_data],
-            activation_algos= body.activation_algos,
+            algos= body.activation_algos,
             epochs=body.epochs,
             learning_rate=body.learning_rate,
         )

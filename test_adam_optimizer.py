@@ -16,19 +16,19 @@ class TestAdamOptimizer(unittest.TestCase):
          [[[0.001, 0.001, 0.001], [0.001, 0.001, 0.001]], [[0.001, 0.001, 0.001], [0.001, 0.001, 0.001]]]),
     ])
     def test_adam_optimizer(self, gradients, expected_steps):
-        gradient_arrays = [gradient_array for gradient_array in map(np.array, gradients)]
+        gradients = [gradient for gradient in map(np.array, gradients)]
 
-        first_step_arrays = self.optimizer.step(gradient_arrays)
+        first_steps = self.optimizer.step(gradients)
 
         self.assertEqual(self.optimizer.state["time_step"], 1)
-        for step_array, expected_step_array in zip(first_step_arrays, map(np.array, expected_steps)):
-            np.testing.assert_array_almost_equal(step_array, expected_step_array, decimal=8)
+        for step, expected_step in zip(first_steps, map(np.array, expected_steps)):
+            np.testing.assert_almost_equal(step, expected_step, decimal=8)
 
-        second_step_arrays = self.optimizer.step(gradient_arrays)
+        second_steps = self.optimizer.step(gradients)
 
         self.assertEqual(self.optimizer.state["time_step"], 2)
-        for step_array, expected_step_array in zip(second_step_arrays, map(np.array, expected_steps)):
-            np.testing.assert_array_almost_equal(step_array, expected_step_array, decimal=8)
+        for step, expected_step in zip(second_steps, map(np.array, expected_steps)):
+            np.testing.assert_array_almost_equal(step, expected_step, decimal=8)
 
 if __name__ == '__main__':
     unittest.main()

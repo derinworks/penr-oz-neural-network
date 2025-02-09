@@ -53,7 +53,7 @@ class TestNeuralNetModel(unittest.TestCase):
         sample_input = [0.5] * input_size  # Example input as a list of numbers
 
         # Call the compute_output method
-        output, _, _, _ = model.compute_output(activation_vector=sample_input, activation_algos=algos)
+        output, _, _ = model.compute_output(activation_vector=sample_input, algos=algos)
 
         # Check that the output has the correct size
         self.assertEqual(len(output), output_size)
@@ -84,16 +84,16 @@ class TestNeuralNetModel(unittest.TestCase):
         sample_target = [0.0] * output_size  # Example target as a list of numbers
         sample_target[0] = 1.0
 
-        initial_weights = [layer_weights for layer_weights in model.weights]
-        initial_biases = [layer_biases for layer_biases in model.biases]
+        initial_weights = [layer_weights.tolist() for layer_weights in model.weights]
+        initial_biases = [layer_biases.tolist() for layer_biases in model.biases]
 
         # Add enough data to meet the training buffer size
         training_data = [(sample_input, sample_target)] * model.training_buffer_size
 
-        model.train(training_data=training_data, activation_algos=algos, epochs=1)
+        model.train(training_data=training_data, algos=algos, epochs=1)
 
-        updated_weights = [layer_weights for layer_weights in model.weights]
-        updated_biases = [layer_biases for layer_biases in model.biases]
+        updated_weights = [layer_weights.tolist() for layer_weights in model.weights]
+        updated_biases = [layer_biases.tolist() for layer_biases in model.biases]
 
         # Check that the model data is still valid
         self.assertEqual(len(initial_weights), len(updated_weights))
@@ -106,8 +106,8 @@ class TestNeuralNetModel(unittest.TestCase):
         # Deserialize and check if recorded training
         persisted_model = NeuralNetworkModel.deserialize(model.model_id)
 
-        persisted_weights = [layer_weights for layer_weights in persisted_model.weights]
-        persisted_biases = [layer_biases for layer_biases in persisted_model.biases]
+        persisted_weights = [layer_weights.tolist() for layer_weights in persisted_model.weights]
+        persisted_biases = [layer_biases.tolist() for layer_biases in persisted_model.biases]
 
         self.assertEqual(updated_weights, persisted_weights)
         self.assertEqual(updated_biases, persisted_biases)
@@ -127,7 +127,7 @@ class TestNeuralNetModel(unittest.TestCase):
         # Add insufficient data
         training_data = [(sample_input, sample_target)] * (model.training_buffer_size - 1)
 
-        model.train(training_data=training_data, activation_algos=["relu"] * 2, epochs=1)
+        model.train(training_data=training_data, algos=["relu"] * 2, epochs=1)
 
         # Ensure no training progress and buffering
         self.assertEqual(len(model.progress), 0)
@@ -152,7 +152,7 @@ class TestNeuralNetModel(unittest.TestCase):
 
         # Test that setting an invalid activation algorithm raises a ValueError
         with self.assertRaises(ValueError) as context:
-            model.train(training_data=training_data, activation_algos=["unknown_algo"] * 2, epochs=1)
+            model.train(training_data=training_data, algos=["unknown_algo"] * 2, epochs=1)
 
         # Assert the error message
         self.assertEqual(str(context.exception), "Unsupported activation algorithm: unknown_algo")
