@@ -42,6 +42,7 @@ def test_create_model_endpoint(mock_new_model):
         "layer_sizes": [9, 9, 9],
         "weight_algo": "xavier",
         "bias_algo": "random",
+        "activation_algos": ["sigmoid"] * 2,
     }
 
     response = client.post("/model/", json=payload)
@@ -60,7 +61,6 @@ def test_output_endpoint(mock_deserialized_model):
 
     payload = {
         "model_id": "test",
-        "activation_algos": ["sigmoid"] * 2,
         "input": {
             "activation_vector": [0, 0, 0]
         }
@@ -81,7 +81,6 @@ def test_output_endpoint(mock_deserialized_model):
 def test_train_endpoint(mock_deserialized_model):
     payload = {
         "model_id": "test",
-        "activation_algos": ["sigmoid"] * 2,
         "training_data": [
             {
                 "activation_vector": [0, 0, 0],
@@ -124,7 +123,6 @@ def test_not_found(mock_deserialized_model):
 
     response = client.post("/output/", json={
         "model_id": "nonexistent",
-        "activation_algos": ["sigmoid"] * 2,
         "input": {
             "activation_vector": [0, 0, 0]
         }
@@ -149,7 +147,6 @@ def test_value_error(mock_deserialized_model):
 
     response = client.post("/output/", json={
         "model_id": "test",
-        "activation_algos": ["sigmoid"] * 2,
         "input": {
             "activation_vector": [0, 0, 0]
         }
@@ -164,7 +161,6 @@ def test_unhandled_exception(mock_deserialized_model):
 
     response = client.post("/output/", json={
         "model_id": "test",
-        "activation_algos": ["sigmoid"] * 2,
         "input": {
             "activation_vector": [0, 0, 0]
         }

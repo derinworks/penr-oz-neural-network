@@ -11,12 +11,13 @@ from datetime import datetime as dt
 log = logging.getLogger(__name__)
 
 class NeuralNetworkModel:
-    def __init__(self, model_id, layer_sizes, weight_algo="xavier", bias_algo="random"):
+    def __init__(self, model_id, layer_sizes, weight_algo="xavier", bias_algo="random", activation_algos=None):
         """
         Initialize a neural network with multiple layers.
         :param layer_sizes: List of integers where each integer represents the size of a layer.
         :param weight_algo: Initialization algorithm for weights (default: "xavier").
         :param bias_algo: Initialization algorithm for biases (default: "random")
+        :param activation_algos: Activation algorithms (default: "sigmoid")
         """
         self.model_id = model_id
 
@@ -38,6 +39,8 @@ class NeuralNetworkModel:
             for layer_size in layer_sizes[1:]
         ]
         self.bias_optimizer = AdamOptimizer()
+
+        self.activation_algos = activation_algos or ["sigmoid"] * (len(layer_sizes) - 1)
 
         self.progress = []
 
@@ -84,6 +87,7 @@ class NeuralNetworkModel:
             "weight_optimizer_state": self.weight_optimizer.state,
             "biases": [b.tolist() for b in self.biases],
             "bias_optimizer_state": self.bias_optimizer.state,
+            "activation_algos": self.activation_algos,
             "progress": self.progress,
             "training_data_buffer": self.training_data_buffer,
         }
@@ -93,6 +97,7 @@ class NeuralNetworkModel:
         self.weight_optimizer.state = model_data["weight_optimizer_state"]
         self.biases = [np.array(b) for b in model_data["biases"]]
         self.bias_optimizer.state = model_data["bias_optimizer_state"]
+        self.activation_algos = model_data["activation_algos"]
         self.progress = model_data["progress"]
         self.training_data_buffer = model_data["training_data_buffer"]
 
@@ -129,11 +134,10 @@ class NeuralNetworkModel:
         except FileNotFoundError as e:
             log.warning(f"Failed to delete: {str(e)}")
 
-    def compute_output(self, activation_vector, algos, target_vector=None, dropout_rate=0.0):
+    def compute_output(self, activation_vector, target_vector=None, dropout_rate=0.0):
         """
         Compute activated output and optionally also cost compared to the provided training data.
         :param activation_vector: Activation vector
-        :param algos: Algorithms used to activate
         :param target_vector: Target vector (optional)
         :param dropout_rate: Fraction of neurons to drop during training for hidden layers (optional)
         """
@@ -141,7 +145,7 @@ class NeuralNetworkModel:
         pre_activations = []
         num_layers = len(self.weights)
         for layer in range(num_layers):
-            algo = algos[layer]
+            algo = self.activation_algos[layer]
             pre_activation = np.dot(activations[-1], self.weights[layer]) + self.biases[layer]
             if algo == "relu" and layer < num_layers - 1:
                 # stabilize output in hidden layers prevent overflow with ReLU activations
@@ -158,7 +162,7 @@ class NeuralNetworkModel:
         if target_vector is not None:
             target = np.array(target_vector)
             cost = func.mean_squared_error(activations[-1], target)
-            gradients.compute(self.weights, algos, activations, pre_activations, target)
+            gradients.compute(self.weights, self.activation_algos, activations, pre_activations, target)
 
         return activations[-1].tolist(), cost, gradients
 
@@ -184,13 +188,12 @@ class NeuralNetworkModel:
         for layer in range(len(self.biases)):
             self.biases[layer] -= optimized_bias_steps[layer]
 
-    def train(self, training_data, algos, epochs=100, learning_rate=0.01, decay_rate=0.9, dropout_rate=0.2,
+    def train(self, training_data, epochs=100, learning_rate=0.01, decay_rate=0.9, dropout_rate=0.2,
               l2_lambda=0.001):
         """
         Train the neural network using the provided training data.
 
         :param training_data: List of tuples [(activation_vector, target_vector), ...].
-        :param algos: Algorithms used to activate
         :param epochs: Number of training iterations.
         :param learning_rate: Learning rate for gradient descent.
         :param decay_rate: Decay rate of learning rate for finer gradient descent
@@ -222,7 +225,7 @@ class NeuralNetworkModel:
             avg_gradients = Gradients(self.weights, self.biases)
             total_cost = 0
             for activation_vector, target_vector in training_data_sample:
-                _, cost, gradients = self.compute_output(activation_vector, algos, target_vector, dropout_rate)
+                _, cost, gradients = self.compute_output(activation_vector, target_vector, dropout_rate)
                 total_cost += cost
                 avg_gradients += gradients # sum up gradients
             # take average of by size of sample
