@@ -105,9 +105,6 @@ class CreateModelRequest(ModelRequest):
         examples=["random", "zeros"],
         description="An initialization algorithm"
     )
-
-
-class ModelMutationRequest(ModelRequest):
     activation_algos: list[str] = Field(
         ...,
         examples=[["sigmoid"] * 2, ["relu"] * 2, ["tanh"] * 2, ["relu", "softmax"]],
@@ -115,14 +112,14 @@ class ModelMutationRequest(ModelRequest):
     )
 
 
-class ActivationRequest(ModelMutationRequest):
+class ActivationRequest(ModelRequest):
     input: InputItem = Field(
         ...,
         description="The input data, an InputItem."
     )
 
 
-class TrainingRequest(ModelMutationRequest):
+class TrainingRequest(ModelRequest):
     training_data: list[TrainingItem] = Field(
         ...,
         examples=[EXAMPLES],
@@ -180,7 +177,7 @@ def redirect_to_docs():
 
 @app.post("/model/")
 def create_model(body: CreateModelRequest = Body(...)):
-    model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.weight_algo, body.bias_algo)
+    model = NeuralNetworkModel(body.model_id, body.layer_sizes, body.weight_algo, body.bias_algo, body.activation_algos)
     model.serialize()
     return {"message": f"Model {body.model_id} created and saved successfully"}
 
@@ -193,15 +190,13 @@ def compute_model_output(body:
                                  "description": f"Example input and training data for case {idx + 1}",
                                  "value": {
                                      "model_id": "test",
-                                     "activation_algos": ["sigmoid"] * 2,
                                      "input": example
                                  }
                              } for idx, example in enumerate(EXAMPLES)} )):
     model = NeuralNetworkModel.deserialize(body.model_id)
     activation_vector = body.input.activation_vector
     target_vector = body.input.target_vector
-    activation_algos = body.activation_algos
-    output_vector, cost, gradients = model.compute_output(activation_vector, activation_algos, target_vector)
+    output_vector, cost, gradients = model.compute_output(activation_vector, target_vector)
     return {"output_vector": output_vector,
             "cost": cost,
             "cost_derivative_wrt_weights": [gw.tolist() for gw in gradients.cost_wrt_weights],
@@ -216,7 +211,6 @@ async def train_model(body: TrainingRequest = Body(...)):
     async def train():
         model.train(
             [(data.activation_vector, data.target_vector) for data in body.training_data],
-            algos= body.activation_algos,
             epochs=body.epochs,
             learning_rate=body.learning_rate,
         )
