@@ -11,12 +11,11 @@ def sigmoid(x):
 
 def sigmoid_derivative(x):
     """
-    Takes a NumPy array x (raw pre-activation) and returns the derivative of sigmoid.
-    :param x: a NumPy array x (pre-activated)
+    Takes a NumPy array x (activated) and returns the derivative of sigmoid.
+    :param x: a NumPy array x
     :return: Derivative of sigmoid activation
     """
-    sig = sigmoid(x)  # Ensure sigmoid is applied if x is pre-activation
-    return sig * (1 - sig)
+    return x * (1 - x)
 
 def relu(x):
     """
@@ -47,11 +46,11 @@ def tanh(x):
 
 def tanh_derivative(x):
     """
-    Takes a NumPy array x (pre-activation) and returns the derivative of the tanh function.
-    :param x: a NumPy array x (pre-activated)
+    Takes a NumPy array x (activated) and returns the derivative of the tanh function.
+    :param x: a NumPy array x (activated)
     :return: Derivative of tanh activation
     """
-    return 1 - np.tanh(x) ** 2
+    return 1 - x ** 2
 
 def mean_squared_error(x1, x2):
     """
@@ -60,7 +59,7 @@ def mean_squared_error(x1, x2):
     :param x2: a NumPy array x2
     :return: the mean squared error between a NumPy array 1 to 2
     """
-    return np.sum((x1 - x2) ** 2)
+    return np.sum((x2 - x1) ** 2) / len(x1)
 
 def mean_squared_error_derivative(x1, x2):
     """
@@ -69,7 +68,7 @@ def mean_squared_error_derivative(x1, x2):
     :param x2: a NumPy array x2
     :return: Derivative of the mean squared error between a NumPy array 1 to 2
     """
-    return 2 * (x1 - x2)
+    return 2 * (x2 - x1)
 
 def softmax(x):
     """
@@ -88,18 +87,27 @@ def softmax(x):
     return exp_x / np.sum(exp_x)
 
 
-def softmax_cross_entropy_gradient(x, y):
+def cross_entropy_gradient(x, y):
     """
     Compute the gradient of the cross-entropy loss with softmax for a single sample.
-    :param x: a NumPy array x (1D pre-activation logits for a single sample).
-    :param y: a NumPy array y (1D expected output, either one-hot encoded or a probability distribution).
-    :return: Gradient of the loss with respect to the logits.
+    :param x: a NumPy array x (1D softmax activated probabilities for a single sample).
+    :param y: a NumPy array y (1D expected output, a probability distribution).
+    :return: Gradient of the loss with respect to the softmax activation.
     """
-    # Compute softmax probabilities using softmax function
-    softmax_probs = softmax(x)
-    # Calculate the gradient: softmax_probs - y
-    return softmax_probs - y
+    return y - x
 
+def cross_entropy_loss(x, y):
+    """
+    Compute the cross-entropy loss for a single sample.
+    :param x: an input NumPy array (1D pre-activation logits for a single sample).
+    :param y: an expected output NumPy array (1D expected output, either one-hot encoded or a probability distribution).
+    :return: Cross entropy loss.
+    """
+    # Clipping to avoid log(0) issues
+    eps = 1e-12
+    x = np.array([max(min(p, 1 - eps), eps) for p in x])
+    # Compute cross-entropy loss
+    return -np.sum(np.log(x) * y) / len(x)
 
 def batch_norm(x, epsilon=1e-5):
     """
@@ -119,7 +127,9 @@ def apply_dropout(x, dropout_rate):
     :param dropout_rate: The fraction of vector entries to drop (e.g., 0.2 for 20%).
     :return: a NumPy array with dropout applied.
     """
-    if dropout_rate <= 0.0 or dropout_rate >= 1.0:
-        return x  # No dropout if rate is invalid
+    if dropout_rate <= 0.0:
+        return x  # No drop out if rate is invalid
+    elif dropout_rate >= 1.0:
+        return np.zeros_like(x) # All drops out on probabilistic certainty
     dropout_mask = np.random.rand(*x.shape) > dropout_rate
     return x * dropout_mask / (1.0 - dropout_rate)

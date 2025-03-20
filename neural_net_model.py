@@ -162,7 +162,7 @@ class NeuralNetworkModel:
         if target_vector is not None:
             target = np.array(target_vector)
             cost = func.mean_squared_error(activations[-1], target)
-            gradients.compute(self.weights, self.activation_algos, activations, pre_activations, target)
+            gradients.compute(self.weights, self.activation_algos, activations, target)
 
         return activations[-1].tolist(), cost, gradients
 
