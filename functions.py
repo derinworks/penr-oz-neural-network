@@ -107,7 +107,7 @@ def cross_entropy_loss(x, y):
     eps = 1e-12
     x = np.array([max(min(p, 1 - eps), eps) for p in x])
     # Compute cross-entropy loss
-    return -np.sum(np.log(x) * y) / len(x)
+    return -np.sum(y * np.log(x))
 
 def batch_norm(x, epsilon=1e-5):
     """
